@@ -11,7 +11,7 @@
 #include <string.h>
 #include "lameutils.h"
 
-void __attribute__((naked)) my_lame_handler(void)
+void __attribute__((naked, aligned(16))) my_lame_handler(void)
 {
     asm volatile ("iretq");
 }
