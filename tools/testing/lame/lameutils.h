@@ -51,7 +51,7 @@ static inline int lame_handler_register(void *handler, int enable)
 /**
  * lame_int - Invoke the LAME interrupt (INT 0x1F)
  *
- * This is a naked function that simply invokes int 0x1f.
+ * This is an inline function that simply invokes int 0x1f.
  * The handler registered via lame_handler_register will be called.
  */
 static inline void lame_int(void)
