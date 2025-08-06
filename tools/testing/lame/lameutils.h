@@ -54,7 +54,7 @@ static inline int lame_handler_register(void *handler, int enable)
  * This is a naked function that simply invokes int 0x1f.
  * The handler registered via lame_handler_register will be called.
  */
-static void __attribute__((naked)) lame_int(void)
+static inline void lame_int(void)
 {
     asm volatile("int $0x1f");
 }
