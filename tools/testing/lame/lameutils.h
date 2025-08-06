@@ -51,10 +51,10 @@ static inline int lame_handler_register(void *handler, int enable)
 /**
  * lame_int - Invoke the LAME interrupt (INT 0x1F)
  *
- * This is a naked inline function that simply invokes int 0x1f.
+ * This is a naked function that simply invokes int 0x1f.
  * The handler registered via lame_handler_register will be called.
  */
-static inline void __attribute__((naked)) lame_int(void)
+static void __attribute__((naked)) lame_int(void)
 {
     asm volatile("int $0x1f");
 }
