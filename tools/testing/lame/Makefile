@@ -1,5 +1,4 @@
 CC = gcc
-INCLUDE_PATH = -I/tmp/lame-headers/include
 CFLAGS = -Wall -Wextra -O0 -g $(INCLUDE_PATH)
 LDFLAGS = ../../../arch/x86/entry/vdso/vdso64.so
 

@@ -10,6 +10,6 @@ sudo make modules_install
 sudo make install
 
 echo "[*] Installing sanitized UAPI headers..."
-make headers_install INSTALL_HDR_PATH=/tmp/lame-headers
+sudo make headers_install INSTALL_HDR_PATH=/usr/local
 
 echo "[*] Done!"
