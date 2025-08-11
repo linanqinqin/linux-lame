@@ -61,9 +61,6 @@ static void pack_gate_lame(gate_desc *gate, unsigned type, unsigned long func,
 #endif
 }
 
-/* char device name */
-#define LAME_DEVICE_NAME "lame"
-
 /* Device number - auto-assign */
 static int major = 0;
 
@@ -118,16 +115,16 @@ static int lame_register_ioctl(struct file *file, unsigned long arg)
         return -EFAULT;
     }
     
-    pr_debug("[lame_register_ioctl] LAME_REGISTER: is_present=%d, handler_addr=0x%llx\n", 
-             user_arg.is_present, user_arg.handler_stub_addr);
+    pr_debug("[lame_register_ioctl] LAME_REGISTER: present=%d, handler_addr=0x%llx\n", 
+             user_arg.present, user_arg.handler_addr);
     
     /* Implement actual LAME logic here */
-    if (user_arg.is_present) {
+    if (user_arg.present) {
         pr_info("[lame_register_ioctl] LAME_REGISTER: enabling LAME handler at 0x%llx\n", 
-                user_arg.handler_stub_addr);
+                user_arg.handler_addr);
         
         /* Enable LAME handler */
-        ret = lame_enable_handler(user_arg.handler_stub_addr);
+        ret = lame_enable_handler(user_arg.handler_addr);
         if (ret < 0) {
             pr_err("[lame_register_ioctl] Failed to enable LAME handler: %d\n", ret);
             return ret;
@@ -279,9 +276,9 @@ static int __init lame_init(void)
     /* Allocate device number */
     if (major) {
         lame_dev = MKDEV(major, 0);
-        ret = register_chrdev_region(lame_dev, 1, LAME_DEVICE_NAME);
+        ret = register_chrdev_region(lame_dev, 1, LAME_DEV_NAME);
     } else {
-        ret = alloc_chrdev_region(&lame_dev, 0, 1, LAME_DEVICE_NAME);
+        ret = alloc_chrdev_region(&lame_dev, 0, 1, LAME_DEV_NAME);
     }
     
     if (ret < 0) {
@@ -307,7 +304,7 @@ static int __init lame_init(void)
     }
     
     /* Create device class */
-    lame_class = class_create(LAME_DEVICE_NAME);
+    lame_class = class_create(LAME_DEV_NAME);
     if (IS_ERR(lame_class)) {
         pr_err("[LAME module] Failed to create class: %ld\n", PTR_ERR(lame_class));
         ret = PTR_ERR(lame_class);
@@ -315,7 +312,7 @@ static int __init lame_init(void)
     }
     
     /* Create device file */
-    lame_device = device_create(lame_class, NULL, lame_dev, NULL, LAME_DEVICE_NAME);
+    lame_device = device_create(lame_class, NULL, lame_dev, NULL, LAME_DEV_NAME);
     if (IS_ERR(lame_device)) {
         pr_err("[LAME module] Failed to create device: %ld\n", PTR_ERR(lame_device));
         ret = PTR_ERR(lame_device);
@@ -323,7 +320,7 @@ static int __init lame_init(void)
     }
     
     pr_info("[LAME module] LAME device: /dev/%s (major=%d, minor=%d)\n", 
-            LAME_DEVICE_NAME, MAJOR(lame_dev), MINOR(lame_dev));
+            LAME_DEV_NAME, MAJOR(lame_dev), MINOR(lame_dev));
     
     return 0;
     

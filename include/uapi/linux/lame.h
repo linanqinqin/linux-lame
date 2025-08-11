@@ -16,10 +16,13 @@
 #define LAME_IOC_MAGIC 'L'
 #define LAME_REGISTER _IOW(LAME_IOC_MAGIC, 1, struct lame_arg)
 
+#define LAME_DEV_NAME "lame"
+#define LAME_DEV_PATH "/dev/" LAME_DEV_NAME
+
 /* Argument structure */
 struct lame_arg {
-    __u8 is_present;        /* Use __u8 instead of bool for ABI stability */
-    __u64 handler_stub_addr; /* Use __u64 for 64-bit compatibility */
+    __u8 present;        /* Use __u8 instead of bool for ABI stability */
+    __u64 handler_addr; /* Use __u64 for 64-bit compatibility */
 };
 
 #endif /* _UAPI_LINUX_LAME_H */ 

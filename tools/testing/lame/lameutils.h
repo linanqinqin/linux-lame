@@ -30,14 +30,14 @@ static inline int lame_handler_register(void *handler, int enable)
     int ret;
 
     /* Open the LAME device */
-    fd = open("/dev/lame", O_RDWR);
+    fd = open(LAME_DEV_PATH, O_RDWR);
     if (fd < 0) {
         return -1;
     }
 
     /* Set up the argument structure */
-    arg.is_present = enable ? 1 : 0;
-    arg.handler_stub_addr = enable ? (__u64)handler : 0;
+    arg.present = enable ? 1 : 0;
+    arg.handler_addr = enable ? (__u64)handler : 0;
 
     /* Perform the ioctl */
     ret = ioctl(fd, LAME_REGISTER, &arg);
