@@ -24,6 +24,7 @@
      printf("LAME Test Program (using lameutils.h)\n");
      printf("=====================================\n");
      printf("Current PID: %d\n", getpid());
+     printf("Handler address: %p\n", my_lame_handler);
      
      /* Test 1: Enable LAME */
      printf("\nTest 1: Enabling LAME...\n");
