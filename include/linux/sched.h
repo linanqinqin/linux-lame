@@ -46,6 +46,9 @@
 #include <linux/livepatch_sched.h>
 #include <linux/uidgid_types.h>
 #include <asm/kmap_size.h>
+/* linanqinqin */
+#include <linux/lame.h>
+/* end */
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1252,6 +1255,11 @@ struct task_struct {
 	struct mutex			perf_event_mutex;
 	struct list_head		perf_event_list;
 #endif
+/* linanqinqin */
+#ifdef CONFIG_LAME
+	struct lame_config		lame_cfg;
+#endif
+/* end */
 #ifdef CONFIG_DEBUG_PREEMPT
 	unsigned long			preempt_disable_ip;
 #endif

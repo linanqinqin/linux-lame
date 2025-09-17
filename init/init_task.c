@@ -205,6 +205,11 @@ struct task_struct init_task __aligned(L1_CACHE_BYTES) = {
 #ifdef CONFIG_SECCOMP_FILTER
 	.seccomp	= { .filter_count = ATOMIC_INIT(0) },
 #endif
+/* linanqinqin */
+#ifdef CONFIG_LAME
+	.lame_cfg	= { .is_active = 0, .handler_addr = NULL, .sample_period = 0 },
+#endif
+/* end */
 };
 EXPORT_SYMBOL(init_task);
 
