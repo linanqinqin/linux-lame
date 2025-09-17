@@ -1195,7 +1195,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 /* linanqinqin */
 #ifdef CONFIG_LAME
 	tsk->lame_cfg.is_active = 0;
-	tsk->lame_cfg.handler_addr = NULL;
+	tsk->lame_cfg.handler_addr = 0 /* NULL */;
 	tsk->lame_cfg.sample_period = 0;
 #endif
 /* end */
@@ -2473,7 +2473,7 @@ __latent_entropy struct task_struct *copy_process(
 /* linanqinqin */
 #ifdef CONFIG_LAME
 	p->lame_cfg.is_active = 0;
-	p->lame_cfg.handler_addr = NULL;
+	p->lame_cfg.handler_addr = 0 /* NULL */;
 	p->lame_cfg.sample_period = 0;
 #endif
 /* end */

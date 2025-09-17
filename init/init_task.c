@@ -207,7 +207,7 @@ struct task_struct init_task __aligned(L1_CACHE_BYTES) = {
 #endif
 /* linanqinqin */
 #ifdef CONFIG_LAME
-	.lame_cfg	= { .is_active = 0, .handler_addr = NULL, .sample_period = 0 },
+	.lame_cfg	= { .is_active = 0, .handler_addr = 0 /* NULL */, .sample_period = 0 },
 #endif
 /* end */
 };
