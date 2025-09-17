@@ -36,6 +36,9 @@ ctxswitch_cycles: ctxswitch_cycles.c ctxswitch_cycles_asm.S
 int_ioctl: int_ioctl.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+ioctl: ioctl.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
 	rm -f $(TARGETS)
 

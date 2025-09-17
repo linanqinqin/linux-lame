@@ -25,7 +25,7 @@ int main(void)
     
     /* Test 1: Enable LAME */
     printf("\nTest 1: Enabling LAME...\n");
-    ret = lame_handler_register(my_lame_handler, 1);
+    ret = lame_handler_register_direct(my_lame_handler, 1);
     if (ret < 0) {
         fprintf(stderr, "[errno %d] Failed to register LAME handler\n", errno);
         return 1;
@@ -41,7 +41,7 @@ int main(void)
     
     /* Test 3: Disable LAME */
     printf("\nTest 3: Disabling LAME...\n");
-    ret = lame_handler_register(NULL, 0);
+    ret = lame_handler_register_direct(NULL, 0);
     if (ret < 0) {
         fprintf(stderr, "[errno %d] Failed to unregister LAME handler\n", errno);
         return 1;

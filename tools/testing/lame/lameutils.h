@@ -17,18 +17,50 @@
 #include <linux/lame.h>
 
 /**
- * lame_handler_register - Register or unregister a LAME handler
+ * lame_handler_register_direct - Register or unregister a LAME handler directly into the IDT table
  * @handler: Pointer to the handler function (NULL to unregister)
  * @enable: 1 to register, 0 to unregister
  *
- * Returns: 0 on success, -1 on failure (errno is set)
+ * Returns: 0 on success, negative error code on failure
  */
-static inline int lame_handler_register(void *handler, int enable)
+static inline int lame_handler_register_direct(void *handler, int enable)
 {
     int fd;
     struct lame_arg arg;
     int ret;
 
+    /* Open the LAME device */
+    fd = open(LAME_DEV_PATH, O_RDWR);
+    if (fd < 0) {
+        return -1;
+    }
+
+    /* Set up the argument structure */
+    arg.present = enable ? 1 : 0;
+    arg.handler_addr = enable ? (__u64)handler : 0;
+
+    /* Perform the ioctl */
+    ret = ioctl(fd, LAME_REGISTER_DIRECT, &arg);
+    
+    /* Close the device */
+    close(fd);
+
+    return ret;
+}
+
+/**
+ * lame_handler_register_self - Register or unregister a LAME handler for the current task
+ * @handler: Pointer to the handler function (NULL to unregister)
+ * @enable: 1 to register, 0 to unregister
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static inline int lame_handler_register_self(void *handler, int enable)
+{
+    int fd;
+    struct lame_arg arg;
+    int ret;
+    
     /* Open the LAME device */
     fd = open(LAME_DEV_PATH, O_RDWR);
     if (fd < 0) {
