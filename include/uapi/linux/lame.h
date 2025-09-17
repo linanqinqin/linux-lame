@@ -15,6 +15,7 @@
 /* IOCTL command codes */
 #define LAME_IOC_MAGIC 'L'
 #define LAME_REGISTER _IOW(LAME_IOC_MAGIC, 1, struct lame_arg)
+#define LAME_REGISTER_DIRECT _IOW(LAME_IOC_MAGIC, 2, struct lame_arg)
 
 #define LAME_DEV_NAME "lame"
 #define LAME_DEV_PATH "/dev/" LAME_DEV_NAME

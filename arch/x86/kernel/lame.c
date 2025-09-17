@@ -16,6 +16,7 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
+#include <linux/sched.h>
 #include <asm/desc.h>
 #include <asm/trapnr.h>
 #include <asm/set_memory.h>
@@ -101,46 +102,94 @@ static int lame_release(struct inode *inode, struct file *file)
     return 0;
 }
 
-/* IOCTL handler - LAME logic will be implemented here later */
-static int lame_register_ioctl(struct file *file, unsigned long arg)
+/**
+ * lame_register_direct - Register or unregister a LAME handler directly into the IDT table
+ * the installed handler will replace the original IDT[X86_TRAP_LAME] handler and be globally visible
+ * @file: The ioctl file pointer
+ * @arg: The argument pointer to the lame_arg structure
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int lame_register_direct(struct file *file, unsigned long arg)
 {
     struct lame_arg user_arg;
     int ret = 0;
     
-    pr_debug("[lame_register_ioctl] LAME_REGISTER ioctl called\n");
+    pr_debug("[lame_register_direct] LAME_REGISTER ioctl called\n");
     
     /* Copy argument from user space */
     if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
-        pr_err("[lame_register_ioctl] Failed to copy argument from user space\n");
+        pr_err("[lame_register_direct] Failed to copy argument from user space\n");
         return -EFAULT;
     }
     
-    pr_debug("[lame_register_ioctl] LAME_REGISTER: present=%d, handler_addr=0x%llx\n", 
+    pr_debug("[lame_register_direct] LAME_REGISTER: present=%d, handler_addr=0x%llx\n", 
              user_arg.present, user_arg.handler_addr);
     
     /* Implement actual LAME logic here */
     if (user_arg.present) {
-        pr_info("[lame_register_ioctl] LAME_REGISTER: enabling LAME handler at 0x%llx\n", 
+        pr_info("[lame_register_direct] LAME_REGISTER: enabling LAME handler at 0x%llx\n", 
                 user_arg.handler_addr);
         
         /* Enable LAME handler */
         ret = lame_enable_handler(user_arg.handler_addr);
         if (ret < 0) {
-            pr_err("[lame_register_ioctl] Failed to enable LAME handler: %d\n", ret);
+            pr_err("[lame_register_direct] Failed to enable LAME handler: %d\n", ret);
             return ret;
         }
     } else {
-        pr_info("[lame_register_ioctl] LAME_REGISTER: disabling LAME\n");
+        pr_info("[lame_register_direct] LAME_REGISTER: disabling LAME\n");
         
         /* Disable LAME handler */
         ret = lame_disable_handler();
         if (ret < 0) {
-            pr_err("[lame_register_ioctl] Failed to disable LAME handler: %d\n", ret);
+            pr_err("[lame_register_direct] Failed to disable LAME handler: %d\n", ret);
             return ret;
         }
     }
     
     return ret;
+}
+
+/**
+ * lame_register_per_task - Register or unregister a LAME handler for the current task
+ * This function populates the lame_cfg in the current task's task_struct
+ * @file: The ioctl file pointer
+ * @arg: The argument pointer to the lame_arg structure
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int lame_register_per_task(struct file *file, unsigned long arg)
+{
+    struct lame_arg user_arg;
+
+    /* Copy argument from user space */
+    if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
+        pr_err("[lame_register_per_task] Failed to copy argument from user space\n");
+        return -EFAULT;
+    }
+    
+    /* Access current task using the 'current' macro */
+    if (user_arg.present) {
+        
+        /* Populate lame_cfg in current task's task_struct */
+        current->lame_cfg.is_active = 1;
+        current->lame_cfg.handler_addr = (unsigned long)user_arg.handler_addr;
+        current->lame_cfg.sample_period = 1000; /* Default sample period, will add to lame_arg later */
+        
+        pr_info("[lame_register_per_task] LAME registered for task %d: handler=0x%lx, period=%llu\n",
+                current->pid, current->lame_cfg.handler_addr, current->lame_cfg.sample_period);
+    } else {
+        
+        /* Clear lame_cfg in current task's task_struct */
+        current->lame_cfg.is_active = 0;
+        current->lame_cfg.handler_addr = 0;
+        current->lame_cfg.sample_period = 0;
+
+        pr_info("[lame_register_per_task] LAME unregistered for task %d\n", current->pid);
+    }
+    
+    return 0;
 }
 
 /* Main IOCTL dispatcher */
@@ -163,7 +212,10 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     /* Dispatch to appropriate handler */
     switch (cmd) {
     case LAME_REGISTER:
-        ret = lame_register_ioctl(file, arg);
+        ret = lame_register_per_task(file, arg);
+        break;
+    case LAME_REGISTER_DIRECT:
+        ret = lame_register_direct(file, arg);
         break;
     default:
         pr_err("[lame_ioctl] Unknown ioctl command: 0x%x\n", cmd);
@@ -359,3 +411,4 @@ static void __exit lame_exit(void)
 
 /* Built-in module initialization */
 device_initcall(lame_init); 
+/* end */
