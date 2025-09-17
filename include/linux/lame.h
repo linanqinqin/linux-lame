@@ -6,7 +6,7 @@
 
 struct lame_config {
 	int is_active;
-	u64 handler_addr;
+	unsigned long handler_addr;
 	u64 sample_period;
 };
 
