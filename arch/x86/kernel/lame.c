@@ -320,7 +320,24 @@ static int lame_disable_handler(void)
     return 0;
 }
 
-/* Module initialization */
+/**
+ * lame_devnode - Set the device node permissions (override the default devnode callback in class)
+ *
+ * This function is used to set the device node permissions to 0660, which allows non-root users to read/write the device.
+ */
+static char *lame_devnode(const struct device *dev, umode_t *mode)
+{
+    if (mode) {
+        *mode = 0660;
+    }
+    return NULL;
+}
+
+/**
+ * lame_init - Initialize the LAME module; create the dev device
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
 static int __init lame_init(void)
 {
     int ret;
@@ -362,6 +379,7 @@ static int __init lame_init(void)
         ret = PTR_ERR(lame_class);
         goto error_cdev_del;
     }
+    lame_class->devnode = lame_devnode; /* override the default devnode callback; setting mode to 0660 */
     
     /* Create device file */
     lame_device = device_create(lame_class, NULL, lame_dev, NULL, LAME_DEV_NAME);
@@ -385,7 +403,9 @@ error_unregister:
     return ret;
 }
 
-/* Module cleanup */
+/**
+ * lame_exit - Clean up the LAME module
+ */
 static void __exit lame_exit(void)
 {
     /* Remove device file */
@@ -409,6 +429,6 @@ static void __exit lame_exit(void)
     pr_info("[LAME module] unloaded\n");
 }
 
-/* Built-in module initialization */
+/* initcall as a built-in module */
 device_initcall(lame_init); 
 /* end */
