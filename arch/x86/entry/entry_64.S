@@ -1555,3 +1555,111 @@ SYM_FUNC_START(clear_bhb_loop)
 SYM_FUNC_END(clear_bhb_loop)
 EXPORT_SYMBOL_GPL(clear_bhb_loop)
 STACK_FRAME_NON_STANDARD(clear_bhb_loop)
+
+/* linanqinqin */
+/*
+ * LAME (Latency-Aware Memory Exception) handler
+ * 
+ * This is a minimal NMI handler that performs essential PEBS/PMU housekeeping
+ * and then upcalls to user-space handler if registered.
+ */
+SYM_CODE_START(asm_exc_lame)
+	/* ORC hints and CET-IBT landing pad */
+	UNWIND_HINT_IRET_ENTRY
+	ENDBR
+
+	/* set DF=0 for well-behaved mem ops */
+	cld
+
+	/* is this user-/kernel-originated LAME? */
+	testb	$3, 8(%rsp) /* [RSP+8]: CS */
+	jz	.Llame_from_kernel
+
+	/* --- user-originated LAME path --- */
+
+	/* swap to kernel GS; needed for using %gs:current */
+	swapgs
+
+	/* switch to kernel CR3 */
+	pushq	%rax
+	pushq	%rcx /* RCX may be clobbered by SWITCH_TO_KERNEL_CR3 alternatives; saved it before switch. */
+	SWITCH_TO_KERNEL_CR3 scratch_reg=%rax
+
+	/* save all caller regs */
+	pushq	%rdx
+	pushq	%rsi
+	pushq	%rdi
+	pushq	%r8
+	pushq	%r9
+	pushq	%r10
+	pushq	%r11
+
+	/** 
+	 * arg0 = &IST frame (adjust past pushes).
+	 * We pass this unconditionally; intel_lame_handle must read frame->cs
+	 * and avoid touching frame->rsp/ss if (cs & 3) == 0 (kernel-origin layout).
+	 *
+	 * Push count so far on user path:
+	 *   HW IST (5 qwords)  -> rsp%16 == 8 (typical)
+	 *   +2 (rax, rcx)      -> rsp%16 == 0
+	 *   +7 (rest)          -> rsp%16 == 0
+	 * We sub $8 to make pre-call rsp%16 == 8 so callee entry is 16-byte aligned.
+	 */
+	leaq	9*8(%rsp), %rdi
+	subq	$8, %rsp
+	call	intel_lame_handle /* PMU housekeeping and user handler upcall are done in intel_lame_handle */
+	addq	$8, %rsp
+
+	/* restore all caller regs */
+	popq	%r11
+	popq	%r10
+	popq	%r9
+	popq	%r8
+	popq	%rdi
+	popq	%rsi
+	popq	%rdx
+
+	/* switch to user CR3; these macros clobber %rax & %rcx, which are still saved at this point*/
+	SWITCH_TO_USER_CR3 scratch_reg=%rax scratch_reg2=%rcx
+	popq	%rcx
+	popq	%rax
+
+	/* swap back to user GS */
+	swapgs
+
+	/* Return to interrupted context */
+	iretq
+
+.Llame_from_kernel:
+	
+	/* --- kernel-originated LAME path --- */
+	/*       no swapgs or CR3 switch       */
+	pushq	%rax
+	pushq	%rcx
+	pushq	%rdx
+	pushq	%rsi
+	pushq	%rdi
+	pushq	%r8
+	pushq	%r9
+	pushq	%r10
+	pushq	%r11
+
+	subq	$8, %rsp
+	leaq	9*8(%rsp), %rdi
+	call	intel_lame_handle
+	addq	$8, %rsp
+
+	popq	%r11
+	popq	%r10
+	popq	%r9
+	popq	%r8
+	popq	%rdi
+	popq	%rsi
+	popq	%rdx
+	popq	%rcx
+	popq	%rax
+
+	/* Return to interrupted context */
+	iretq
+SYM_CODE_END(asm_exc_lame)
+/* end */
