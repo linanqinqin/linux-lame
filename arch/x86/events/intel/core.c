@@ -7032,17 +7032,6 @@ static __init int fixup_ht_bug(void)
 subsys_initcall(fixup_ht_bug)
 
 /* linanqinqin */
-/* Hardware-pushed NMI/IST return frame */
-struct lame_iret_frame {
-	/* top of stack */
-	u64 rip;
-	u64 cs;
-	u64 rflags;
-	/* below only exists if interrupting from CPL3 -> CPL0 */
-	u64 rsp;
-	u64 ss;
-};
-
 /* check if the interrupt is from user mode */
 #define lame_user_mode(frm) (((frm)->cs & 3) == 3)
 /* check if PEBS buffer overflow */
@@ -7063,7 +7052,7 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 {
 	u64 status;
 
-	pr_info("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%lx, user_mode=%d\n", 
+	pr_info("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
 		frame->rip, lame_user_mode(frame));
 
 	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */

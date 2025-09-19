@@ -628,4 +628,23 @@ static __always_inline void perf_lopwr_cb(bool lopwr_in)
 
 #define arch_perf_out_copy_user copy_from_user_nmi
 
+/* linanqinqin */
+/* Hardware-pushed NMI/IST return frame */
+struct lame_iret_frame {
+	/* top of stack */
+	u64 rip;
+	u64 cs;
+	u64 rflags;
+	/* below only exists if interrupting from CPL3 -> CPL0 */
+	u64 rsp;
+	u64 ss;
+};
+
+#if defined(CONFIG_PERF_EVENTS) && defined(CONFIG_CPU_SUP_INTEL)
+extern void intel_lame_handle(struct lame_iret_frame *frame);
+#else
+static inline void intel_lame_handle(struct lame_iret_frame *frame) { }
+#endif
+/* end */
+
 #endif /* _ASM_X86_PERF_EVENT_H */
