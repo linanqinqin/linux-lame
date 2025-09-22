@@ -7081,6 +7081,14 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 			struct debug_store *ds = (struct debug_store *)ds_base;
 			WRITE_ONCE(ds->pebs_index, READ_ONCE(ds->pebs_buffer_base));
 		}
+
+		/* we might need to check the PEBS enable bits 
+		 * if somehow disabled, we need to re-enable it */
+		// u64 pebs_enable; 
+		// rdmsrl(MSR_IA32_PEBS_ENABLE, pebs_enable);
+		// if (!pebs_enable) {
+		// 	wrmsrl(MSR_IA32_PEBS_ENABLE, lame_cfg.pebs_enable);
+		// }
 	}
 
 	/*
