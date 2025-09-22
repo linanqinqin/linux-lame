@@ -1,6 +1,7 @@
 /* linanqinqin */
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -36,11 +37,11 @@ int enable_lame(pid_t pid, uint64_t sample_period)
 
     int fd = perf_event_open(&pea, pid, -1, -1, 0);
     if (fd == -1) {
-        perror("perf_event_open failed with errno: %d", errno);
+        fprintf(stderr, "perf_event_open failed with errno: %d", errno);
         return -1;
     }
 
-    printf("LAME emulation enabled on pid %d with sample period %llu\n", pid, sample_period);
+    fprintf(stdout, "LAME emulation enabled on pid %d with sample period %lu\n", pid, sample_period);
     return fd;
 }
 
@@ -48,7 +49,7 @@ int disable_lame(int fd)
 {
     if (fd >= 0) {
         close(fd);
-        printf("LAME emulation disabled\n");
+        fprintf(stdout, "LAME emulation disabled\n");
     }
     return 0;
 }
@@ -103,7 +104,7 @@ int main(int argc, char **argv)
     if (fd < 0) return 1;
 
     // Let it run until user presses Enter
-    printf("Press Enter to disable LAME emulation...\n");
+    fprintf(stdout, "Press Enter to disable LAME emulation...\n");
     getchar();
 
     disable_lame(fd);
