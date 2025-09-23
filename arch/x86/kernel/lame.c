@@ -164,6 +164,7 @@ static int __lame_register_int(struct file *file, unsigned long arg)
 static int __lame_register_pebs(struct file *file, unsigned long arg)
 {
     struct lame_arg user_arg;
+    int ret = 0;
 
     /* Copy argument from user space */
     if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
@@ -179,6 +180,13 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
         current->lame_cfg.handler_addr = (unsigned long)user_arg.handler_addr;
         current->lame_cfg.sample_period = 1000; /* Default sample period, will add to lame_arg later */
         
+        /* replace stock NMI handler with LAME trampoline */
+        ret = lame_set_handler_nmi(asm_exc_lame);
+        if (ret) {
+            pr_err("[__lame_register_pebs] Failed to replace stock NMI handler with LAME trampoline\n");
+            return ret;
+        }
+
         pr_info("[__lame_register_pebs] LAME registered for task %d: handler=0x%lx, period=%llu\n",
                 current->pid, current->lame_cfg.handler_addr, current->lame_cfg.sample_period);
     } else {
