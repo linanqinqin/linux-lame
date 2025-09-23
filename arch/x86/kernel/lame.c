@@ -203,12 +203,6 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         return -ENOTTY;
     }
     
-    /* Check if the command number is valid */
-    if (_IOC_NR(cmd) > 1) {
-        pr_err("[lame_ioctl] Invalid ioctl command number\n");
-        return -ENOTTY;
-    }
-    
     /* Dispatch to appropriate handler */
     switch (cmd) {
     case LAME_REGISTER:
