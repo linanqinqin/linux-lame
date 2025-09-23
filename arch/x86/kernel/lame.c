@@ -32,6 +32,10 @@
 extern gate_desc idt_table[];
 extern struct desc_ptr idt_descr;
 
+/* External declarations for assembly symbols */
+extern void asm_exc_nmi(void);
+extern void asm_exc_lame(void);
+
 /**
  * pack_gate_lame - Create a gate descriptor for LAME handler
  * @gate: Pointer to gate_desc structure to fill
@@ -181,7 +185,7 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
         current->lame_cfg.sample_period = 1000; /* Default sample period, will add to lame_arg later */
         
         /* replace stock NMI handler with LAME trampoline */
-        ret = lame_set_handler_nmi(asm_exc_lame);
+        ret = lame_set_handler_nmi((u64)asm_exc_lame);
         if (ret) {
             pr_err("[__lame_register_pebs] Failed to replace stock NMI handler with LAME trampoline\n");
             return ret;
