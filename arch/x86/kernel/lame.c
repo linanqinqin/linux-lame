@@ -25,7 +25,8 @@
 
 /* Constants for IDT entry configuration */
 #define DEFAULT_STACK 0
-#define DPL3 0x3
+#define DPL0		0x0
+#define DPL3		0x3
 
 /* External declarations for IDT management */
 extern gate_desc idt_table[];
