@@ -75,8 +75,9 @@ static struct device *lame_device;
 static int lame_open(struct inode *inode, struct file *file);
 static int lame_release(struct inode *inode, struct file *file);
 static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-static int lame_enable_handler(__u64 handler_addr);
-static int lame_disable_handler(void);
+static int lame_enable_handler_0x1f(__u64 handler_addr);
+static int lame_disable_handler_0x1f(void);
+static int lame_set_handler_nmi(u64 handler_addr);
 static void pack_gate_lame(gate_desc *gate, unsigned type, unsigned long func,
                           unsigned dpl, unsigned ist, unsigned seg);
 
@@ -132,7 +133,7 @@ static int __lame_register_int(struct file *file, unsigned long arg)
                 user_arg.handler_addr);
         
         /* Enable LAME handler */
-        ret = lame_enable_handler(user_arg.handler_addr);
+        ret = lame_enable_handler_0x1f(user_arg.handler_addr);
         if (ret < 0) {
             pr_err("[__lame_register_int] Failed to enable LAME handler: %d\n", ret);
             return ret;
@@ -141,7 +142,7 @@ static int __lame_register_int(struct file *file, unsigned long arg)
         pr_info("[__lame_register_int] LAME_REGISTER_INT: disabling LAME\n");
         
         /* Disable LAME handler */
-        ret = lame_disable_handler();
+        ret = lame_disable_handler_0x1f();
         if (ret < 0) {
             pr_err("[__lame_register_int] Failed to disable LAME handler: %d\n", ret);
             return ret;
@@ -223,35 +224,30 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 /* LAME handler management functions */
 
 /**
- * lame_enable_handler - Enable the LAME exception handler
+ * lame_enable_handler_0x1f - Enable the LAME exception handler
  * @handler_addr: User-space handler address
  *
  * Creates a new IDT entry for X86_TRAP_LAME with the specified handler.
  * The entry is configured as a trap gate with DPL3 and user code segment.
  */
-static int lame_enable_handler(__u64 handler_addr)
+static int lame_enable_handler_0x1f(__u64 handler_addr)
 {
     gate_desc new_entry;
     int ret = 0;
     
-    pr_debug("[lame_enable_handler] Setting up LAME handler at 0x%llx\n", handler_addr);
-    
     /* Validate handler address */
     if (!handler_addr) {
-        pr_err("[lame_enable_handler] Invalid handler address: 0x%llx\n", handler_addr);
+        pr_err("[lame_enable_handler_0x1f] Invalid handler address: 0x%llx\n", handler_addr);
         return -EINVAL;
     }
     
     /* Create the new IDT entry exactly as specified */
     pack_gate_lame(&new_entry, GATE_TRAP, handler_addr, DPL3, DEFAULT_STACK, __USER_CS);
     
-    pr_debug("[lame_enable_handler] New entry: addr=0x%llx, type=%d, dpl=%d\n",
-             handler_addr, GATE_TRAP, DPL3);
-    
     /* Make IDT writable temporarily */
     ret = set_memory_rw((unsigned long)idt_table, 1);
     if (ret < 0) {
-        pr_err("[lame_enable_handler] Failed to make IDT writable: %d\n", ret);
+        pr_err("[lame_enable_handler_0x1f] Failed to make IDT writable: %d\n", ret);
         return ret;
     }
     
@@ -264,36 +260,32 @@ static int lame_enable_handler(__u64 handler_addr)
     /* Make IDT read-only again */
     ret = set_memory_ro((unsigned long)idt_table, 1);
     if (ret < 0) {
-        pr_err("[lame_enable_handler] Failed to make IDT read-only: %d\n", ret);
+        pr_err("[lame_enable_handler_0x1f] Failed to make IDT read-only: %d\n", ret);
         /* Continue anyway as the handler is already installed */
     }
     
-    pr_info("[lame_enable_handler] LAME handler successfully installed at 0x%llx\n", handler_addr);
+    pr_info("[lame_enable_handler_0x1f] LAME handler successfully installed at 0x%llx\n", handler_addr);
     return 0;
 }
 
 /**
- * lame_disable_handler - Disable the LAME exception handler
+ * lame_disable_handler_0x1f - Disable the LAME exception handler
  *
  * Disables the LAME exception handler by setting the present bit to 0.
  */
-static int lame_disable_handler(void)
+static int lame_disable_handler_0x1f(void)
 {
     gate_desc non_entry;
     int ret = 0;
-    
-    pr_debug("[lame_disable_handler] Disabling LAME handler\n");
     
     /* Create a minimal entry with just the present bit set to 0 */
     memset(&non_entry, 0, sizeof(non_entry));
     non_entry.bits.p = 0;  /* This is all we need to disable the entry */
     
-    pr_debug("[lame_disable_handler] Disabling LAME entry (present=0)\n");
-    
     /* Make IDT writable temporarily */
     ret = set_memory_rw((unsigned long)idt_table, 1);
     if (ret < 0) {
-        pr_err("[lame_disable_handler] Failed to make IDT writable: %d\n", ret);
+        pr_err("[lame_disable_handler_0x1f] Failed to make IDT writable: %d\n", ret);
         return ret;
     }
     
@@ -306,11 +298,50 @@ static int lame_disable_handler(void)
     /* Make IDT read-only again */
     ret = set_memory_ro((unsigned long)idt_table, 1);
     if (ret < 0) {
-        pr_err("[lame_disable_handler] Failed to make IDT read-only: %d\n", ret);
+        pr_err("[lame_disable_handler_0x1f] Failed to make IDT read-only: %d\n", ret);
         /* Continue anyway as the handler is already disabled */
     }
     
-    pr_info("[lame_disable_handler] LAME handler successfully disabled\n");
+    pr_info("[lame_disable_handler_0x1f] LAME handler successfully disabled\n");
+    return 0;
+}
+
+/**
+ * lame_set_handler_nmi - Set the handler for the NMI gate
+ * @handler_addr: handler address to be set (asm_exc_nmi or asm_exc_lame)
+ *
+ * Creates a new IDT entry for X86_TRAP_NMI with the specified handler.
+ * The entry is configured as an interrupt gate with DPL0 and kernel code segment.
+ */
+static int lame_set_handler_nmi(u64 handler_addr)
+{
+    gate_desc new_entry;
+    int ret = 0;
+    
+    /* Create the new IDT entry exactly as specified */
+    pack_gate_lame(&new_entry, GATE_INTERRUPT, handler_addr, DPL0, IST_INDEX_NMI+1, __KERNEL_CS);
+    
+    /* Make IDT writable temporarily */
+    ret = set_memory_rw((unsigned long)idt_table, 1);
+    if (ret < 0) {
+        pr_err("[lame_set_handler_nmi] Failed to make IDT writable: %d\n", ret);
+        return ret;
+    }
+    
+    /* Write the new entry to the IDT */
+    write_idt_entry(idt_table, X86_TRAP_NMI, &new_entry);
+    
+    /* Reload the IDT */
+    load_idt(&idt_descr);
+    
+    /* Make IDT read-only again */
+    ret = set_memory_ro((unsigned long)idt_table, 1);
+    if (ret < 0) {
+        pr_err("[lame_set_handler_nmi] Failed to make IDT read-only: %d\n", ret);
+        /* Continue anyway as the handler is already installed */
+    }
+    
+    pr_info("[lame_set_handler_nmi] LAME handler successfully installed at 0x%llx\n", handler_addr);
     return 0;
 }
 
