@@ -3,6 +3,7 @@
 set -euo pipefail
 
 echo "[*] Building the kernel..."
+make tools/objtool
 make -j$(nproc)
 
 echo "[*] Installing modules and kernel..."
