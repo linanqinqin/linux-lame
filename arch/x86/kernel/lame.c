@@ -200,22 +200,43 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
 }
 
 /**
- * __lame_register_nmi_reset - Reset IDT[2] to the stock NMI handler
+ * __lame_idt2_set_nmi - Set IDT[2] to the stock NMI handler
  * @file: The ioctl file pointer
  *
  * Returns: 0 on success, negative error code on failure
  */
-static int __lame_register_nmi_reset(struct file *file)
+static int __lame_idt2_set_nmi(struct file *file)
 {
     int ret = 0;
 
     ret = lame_set_handler_nmi((u64)asm_exc_nmi);
     if (ret) {
-        pr_err("[__lame_register_nmi_reset] Failed to reset the stock NMI handler\n");
+        pr_err("[__lame_idt2_set_nmi] Failed to set the stock NMI handler\n");
         return ret;
     }
 
-    pr_info("[__lame_register_nmi_reset] Stock NMI handler reset\n");
+    pr_info("[__lame_idt2_set_nmi] Stock NMI handler set\n");
+
+    return 0;
+}
+
+/**
+ * __lame_idt2_set_lame - Set IDT[2] to the LAME kernel trampoline
+ * @file: The ioctl file pointer
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int __lame_idt2_set_lame(struct file *file)
+{
+    int ret = 0;
+
+    ret = lame_set_handler_nmi((u64)asm_exc_lame);
+    if (ret) {
+        pr_err("[__lame_idt2_set_lame] Failed to set the LAME kernel trampoline\n");
+        return ret;
+    }
+
+    pr_info("[__lame_idt2_set_lame] LAME kernel trampoline set\n");
 
     return 0;
 }
@@ -239,8 +260,11 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     case LAME_REGISTER_INT:
         ret = __lame_register_int(file, arg);
         break;
-    case LAME_REGISTER_NMI_RESET:
-        ret = __lame_register_nmi_reset(file);
+    case LAME_IDT2_SET_NMI:
+        ret = __lame_idt2_set_nmi(file);
+        break;
+    case LAME_IDT2_SET_LAME:
+        ret = __lame_idt2_set_lame(file);
         break;
     default:
         pr_err("[lame_ioctl] Unknown ioctl command: 0x%x\n", cmd);
