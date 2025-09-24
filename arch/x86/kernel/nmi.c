@@ -489,11 +489,18 @@ static DEFINE_PER_CPU(enum nmi_states, nmi_state);
 static DEFINE_PER_CPU(unsigned long, nmi_cr2);
 static DEFINE_PER_CPU(unsigned long, nmi_dr7);
 
+/* linanqinqin */
+extern u64 lame_counter;
+/* end */
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {
 	irqentry_state_t irq_state;
 	struct nmi_stats *nsp = this_cpu_ptr(&nmi_stats);
 
+	/* linanqinqin */
+	lame_counter++;
+	pr_info("[exc_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
+	/* end */
 	/*
 	 * Re-enable NMIs right here when running as an SEV-ES guest. This might
 	 * cause nested NMIs, but those can be handled safely.
