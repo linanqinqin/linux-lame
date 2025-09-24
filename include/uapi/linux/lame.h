@@ -20,6 +20,8 @@
 /* manipulate IDT[2] for pebs emulation */
 #define LAME_IDT2_SET_NMI _IO(LAME_IOC_MAGIC, 3)
 #define LAME_IDT2_SET_LAME _IO(LAME_IOC_MAGIC, 4)
+/* LAME internal monitor */
+#define LAME_COUNTER_READ _IOR(LAME_IOC_MAGIC, 5, __u64)
 
 #define LAME_DEV_NAME "lame"
 #define LAME_DEV_PATH "/dev/" LAME_DEV_NAME

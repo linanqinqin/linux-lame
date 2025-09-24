@@ -241,6 +241,19 @@ static int __lame_idt2_set_lame(struct file *file)
     return 0;
 }
 
+static int __lame_counter_read(struct file *file, unsigned long arg)
+{
+    u64 cntr_val;
+
+    cntr_val = READ_ONCE(lame_counter);
+    if (copy_to_user((u64 __user *)arg, &cntr_val, sizeof(cntr_val))) {
+        pr_err("[__lame_counter_read] Failed to copy counter value to user space\n");
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
 /* Main IOCTL dispatcher */
 static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -265,6 +278,9 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         break;
     case LAME_IDT2_SET_LAME:
         ret = __lame_idt2_set_lame(file);
+        break;
+    case LAME_COUNTER_READ:
+        ret = __lame_counter_read(file, arg);
         break;
     default:
         pr_err("[lame_ioctl] Unknown ioctl command: 0x%x\n", cmd);
