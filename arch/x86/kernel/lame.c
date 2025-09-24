@@ -129,12 +129,12 @@ static int __lame_register_int(struct file *file, unsigned long arg)
         return -EFAULT;
     }
     
-    pr_debug("[__lame_register_int] LAME_REGISTER_INT: present=%d, handler_addr=0x%llx\n", 
+    pr_debug("[__lame_register_int] present=%d, handler_addr=0x%llx\n", 
              user_arg.present, user_arg.handler_addr);
     
     /* Implement actual LAME logic here */
     if (user_arg.present) {
-        pr_info("[__lame_register_int] LAME_REGISTER_INT: enabling LAME handler at 0x%llx\n", 
+        pr_info("[__lame_register_int] enabling LAME handler at 0x%llx\n", 
                 user_arg.handler_addr);
         
         /* Enable LAME handler */
@@ -144,7 +144,7 @@ static int __lame_register_int(struct file *file, unsigned long arg)
             return ret;
         }
     } else {
-        pr_info("[__lame_register_int] LAME_REGISTER_INT: disabling LAME\n");
+        pr_info("[__lame_register_int] disabling LAME\n");
         
         /* Disable LAME handler */
         ret = lame_disable_handler_0x1f();
@@ -206,6 +206,21 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
     return 0;
 }
 
+static int __lame_register_nmi_reset(struct file *file)
+{
+    int ret = 0;
+
+    ret = lame_set_handler_nmi((u64)asm_exc_nmi);
+    if (ret) {
+        pr_err("[__lame_register_nmi_reset] Failed to reset the stock NMI handler\n");
+        return ret;
+    }
+
+    pr_info("[__lame_register_nmi_reset] Stock NMI handler reset\n");
+
+    return 0;
+}
+
 /* Main IOCTL dispatcher */
 static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -224,6 +239,9 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         break;
     case LAME_REGISTER_INT:
         ret = __lame_register_int(file, arg);
+        break;
+    case LAME_REGISTER_NMI_RESET:
+        ret = __lame_register_nmi_reset(file);
         break;
     default:
         pr_err("[lame_ioctl] Unknown ioctl command: 0x%x\n", cmd);
@@ -277,7 +295,6 @@ static int lame_enable_handler_0x1f(__u64 handler_addr)
         /* Continue anyway as the handler is already installed */
     }
     
-    pr_info("[lame_enable_handler_0x1f] LAME handler successfully installed at 0x%llx\n", handler_addr);
     return 0;
 }
 
@@ -315,7 +332,6 @@ static int lame_disable_handler_0x1f(void)
         /* Continue anyway as the handler is already disabled */
     }
     
-    pr_info("[lame_disable_handler_0x1f] LAME handler successfully disabled\n");
     return 0;
 }
 
@@ -354,7 +370,6 @@ static int lame_set_handler_nmi(u64 handler_addr)
         /* Continue anyway as the handler is already installed */
     }
     
-    pr_info("[lame_set_handler_nmi] LAME handler successfully installed at 0x%llx\n", handler_addr);
     return 0;
 }
 
