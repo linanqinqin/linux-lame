@@ -316,11 +316,19 @@ NOKPROBE_SYMBOL(unknown_nmi_error);
 static DEFINE_PER_CPU(bool, swallow_nmi);
 static DEFINE_PER_CPU(unsigned long, last_nmi_rip);
 
+/* linanqinqin */
+extern u64 lame_counter;
+/* end */
 static noinstr void default_do_nmi(struct pt_regs *regs)
 {
 	unsigned char reason = 0;
 	int handled;
 	bool b2b = false;
+
+	/* linanqinqin */
+	lame_counter++;
+	pr_info("[default_do_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
+	/* end */
 
 	/*
 	 * CPU-specific NMI must be processed before non-CPU-specific
@@ -489,9 +497,6 @@ static DEFINE_PER_CPU(enum nmi_states, nmi_state);
 static DEFINE_PER_CPU(unsigned long, nmi_cr2);
 static DEFINE_PER_CPU(unsigned long, nmi_dr7);
 
-/* linanqinqin */
-extern u64 lame_counter;
-/* end */
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {
 	irqentry_state_t irq_state;
