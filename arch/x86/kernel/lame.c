@@ -36,6 +36,9 @@ extern struct desc_ptr idt_descr;
 extern void asm_exc_nmi(void);
 extern void asm_exc_lame(void);
 
+/* External declarations for lame counter */
+extern u64 lame_counter;
+
 /**
  * pack_gate_lame - Create a gate descriptor for LAME handler
  * @gate: Pointer to gate_desc structure to fill
@@ -168,7 +171,6 @@ static int __lame_register_int(struct file *file, unsigned long arg)
 static int __lame_register_pebs(struct file *file, unsigned long arg)
 {
     struct lame_arg user_arg;
-    int ret = 0;
 
     /* Copy argument from user space */
     if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
