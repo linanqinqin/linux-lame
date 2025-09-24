@@ -105,6 +105,27 @@ int disable_lame(int fd)
     return 0;
 }
 
+int print_lame_counter(void)
+{
+    uint64_t cntr_val;
+    int lame_fd = open(LAME_DEV_PATH, O_RDWR);
+    if (lame_fd < 0) {
+        fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
+        return -1;
+    }
+
+    if (ioctl(lame_fd, LAME_COUNTER_READ, &cntr_val)) {
+        fprintf(stderr, "LAME ioctl device read counter failed with errno: %d\n", errno);
+        close(lame_fd);
+        return -1;
+    }
+    close(lame_fd);
+
+    fprintf(stdout, "LAME counter value: %lu\n", cntr_val);
+    
+    return 0;
+}
+
 static void usage(const char *progname)
 {
     fprintf(stderr, "Usage: %s -i <pid> -p <sample_period>\n", progname);
@@ -112,10 +133,12 @@ static void usage(const char *progname)
     fprintf(stderr, "  -p <period>      Sample period (every Nth LLC miss)\n");
     fprintf(stderr, "  -n               Set IDT[2] to stock NMI handler\n");
     fprintf(stderr, "  -l               Set IDT[2] to LAME kernel trampoline\n");
+    fprintf(stderr, "  -c               Print LAME counter value\n");
     fprintf(stderr, "  -h               Show this help message\n");
     fprintf(stderr, "\nExample: %s -i 1234 -p 10\n", progname);
-    fprintf(stderr, "\nExample: %s -n\n", progname);
-    fprintf(stderr, "\nExample: %s -l\n", progname);
+    fprintf(stderr, "Example: %s -n\n", progname);
+    fprintf(stderr, "Example: %s -l\n", progname);
+    fprintf(stderr, "Example: %s -c\n", progname);
 }
 
 int main(int argc, char **argv)
@@ -124,9 +147,10 @@ int main(int argc, char **argv)
     uint64_t period = 0;
     int do_set_idt2_nmi = 0;
     int do_set_idt2_lame = 0;
+    int do_print_lame_counter = 0;
     int opt;
     
-    while ((opt = getopt(argc, argv, "i:p:nlh")) != -1) {
+    while ((opt = getopt(argc, argv, "i:p:nlch")) != -1) {
         switch (opt) {
         case 'i':
             pid = atoi(optarg);
@@ -148,6 +172,9 @@ int main(int argc, char **argv)
         case 'l':
             do_set_idt2_lame = 1;
             break;
+        case 'c':
+            do_print_lame_counter = 1;
+            break;
         case 'h':
             usage(argv[0]);
             return 0;
@@ -158,13 +185,24 @@ int main(int argc, char **argv)
         }
     }
     
-    if (do_set_idt2_nmi && !do_set_idt2_lame && pid == 0 && period == 0) {
+    if ((do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter > 1)
+        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 0 && pid == 0 && period == 0)
+        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 1 && pid+period != 0)) {
+        fprintf(stderr, "Error: Invalid options\n");
+        usage(argv[0]);
+        return -1;
+    }
+
+    if (do_set_idt2_nmi) {
         return set_idt2_nmi();
     }
-    else if (!do_set_idt2_nmi && do_set_idt2_lame && pid == 0 && period == 0) {
+    else if (do_set_idt2_lame) {
         return set_idt2_lame();
     }
-    else if (!do_set_idt2_nmi && !do_set_idt2_lame && pid && period) {
+    else if (do_print_lame_counter) {
+        return print_lame_counter();
+    }
+    else if (pid && period) {
 
         int fd = enable_lame(pid, period);
         if (fd < 0) return 1;
