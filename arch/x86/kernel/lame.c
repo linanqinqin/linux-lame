@@ -36,8 +36,9 @@ extern struct desc_ptr idt_descr;
 extern void asm_exc_nmi(void);
 extern void asm_exc_lame(void);
 
-/* External declarations for lame counter */
-extern u64 lame_counter;
+/* global lame counter */
+u64 lame_counter __aligned(64);
+EXPORT_SYMBOL(lame_counter);
 
 /**
  * pack_gate_lame - Create a gate descriptor for LAME handler

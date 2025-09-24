@@ -1557,13 +1557,6 @@ EXPORT_SYMBOL_GPL(clear_bhb_loop)
 STACK_FRAME_NON_STANDARD(clear_bhb_loop)
 
 /* linanqinqin */
-.pushsection .data, "aw"
-SYM_ENTRY(lame_counter, SYM_L_GLOBAL, .balign 64)
-.quad 0
-SYM_DATA_END(lame_counter)
-EXPORT_SYMBOL(lame_counter)
-.popsection
-
 /*
  * LAME (Latency-Aware Memory Exception) handler
  * 
