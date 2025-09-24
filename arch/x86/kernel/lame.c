@@ -206,6 +206,12 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
     return 0;
 }
 
+/**
+ * __lame_register_nmi_reset - Reset IDT[2] to the stock NMI handler
+ * @file: The ioctl file pointer
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
 static int __lame_register_nmi_reset(struct file *file)
 {
     int ret = 0;
