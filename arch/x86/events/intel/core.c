@@ -25,6 +25,10 @@
 
 #include "../perf_event.h"
 
+/* linanqinqin */
+extern u64 lame_counter;
+/* end */
+
 /*
  * Intel PerfMon, used on Core and later.
  */
@@ -2796,6 +2800,11 @@ static void intel_pmu_enable_event(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	int idx = hwc->idx;
 
+	/* linanqinqin */
+	lame_counter++;
+	pr_info("[intel_pmu_enable_event] Event enabled, lame_counter: %llu\n", lame_counter);
+	/* end */
+
 	if (unlikely(event->attr.precise_ip))
 		intel_pmu_pebs_enable(event);
 
@@ -2961,6 +2970,11 @@ static int handle_pmi_common(struct pt_regs *regs, u64 status)
 	int bit;
 	int handled = 0;
 	u64 intel_ctrl = hybrid(cpuc->pmu, intel_ctrl);
+
+	/* linanqinqin */
+	lame_counter++;
+	pr_info("[handle_pmi_common] PMI handler invoked, lame_counter: %llu\n", lame_counter);
+	/* end */
 
 	inc_irq_stat(apic_perf_irqs);
 
