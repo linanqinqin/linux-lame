@@ -327,7 +327,7 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 
 	/* linanqinqin */
 	lame_counter++;
-	pr_info("[default_do_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
+	pr_emerg("[default_do_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
 	/* end */
 
 	/*
@@ -504,7 +504,7 @@ DEFINE_IDTENTRY_RAW(exc_nmi)
 
 	/* linanqinqin */
 	lame_counter++;
-	pr_info("[exc_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
+	pr_emerg("[exc_nmi] NMI handler invoked, lame_counter: %llu\n", lame_counter);
 	/* end */
 	/*
 	 * Re-enable NMIs right here when running as an SEV-ES guest. This might

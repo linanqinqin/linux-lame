@@ -2973,7 +2973,7 @@ static int handle_pmi_common(struct pt_regs *regs, u64 status)
 
 	/* linanqinqin */
 	lame_counter++;
-	pr_info("[handle_pmi_common] PMI handler invoked, lame_counter: %llu\n", lame_counter);
+	pr_emerg("[handle_pmi_common] PMI handler invoked, lame_counter: %llu\n", lame_counter);
 	/* end */
 
 	inc_irq_stat(apic_perf_irqs);
@@ -3091,6 +3091,11 @@ static int intel_pmu_handle_irq(struct pt_regs *regs)
 	u64 status;
 	int handled;
 	int pmu_enabled;
+
+	/* linanqinqin */
+	lame_counter++;
+	pr_emerg("[intel_pmu_handle_irq] Intel PMU handler invoked, lame_counter: %llu\n", lame_counter);
+	/* end */
 
 	/*
 	 * Save the PMU state.
