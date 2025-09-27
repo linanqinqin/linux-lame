@@ -7057,21 +7057,22 @@ subsys_initcall(fixup_ht_bug)
 #define lame_pebs_buffer_overflow(status) ((status) & (MSR_CORE_PERF_GLOBAL_OVF_CTRL_OVF_BUF))
 
 /*
- * intel_lame_handle - LAME kernel trampoline (called directly from asm_exc_lame)
+ * intel_lame_pebs_handle - LAME kernel trampoline (called directly from asm_exc_lame)
  * @frame: pointer to the interrupt frame on the IST stack
- *
- * This function performs the minimal PEBS/PMU housekeeping and upcalls the user-space handler (if registered):
+ * 
+ * This functions is for when precise_ip>0 is configured for the event.
+ * This function performs the minimal PEBS housekeeping and upcalls the user-space handler (if registered):
  * 1. reads IA32_PERF_GLOBAL_STATUS
  * 2. clears bits in IA32_PERF_GLOBAL_OVF_CTRL
  * 3. advances PEBS index/buffer minimally
  * 4. reloads IA32_PMCx with negative sample period
  * 5. handles user-space upcall if handler is registered
  */
-void intel_lame_handle(struct lame_iret_frame *frame)
+void intel_lame_pebs_handle(struct lame_iret_frame *frame)
 {
 	u64 status;
 
-	pr_info("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
+	pr_info("[intel_lame_pebs_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
 		frame->rip, lame_user_mode(frame));
 
 	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */
@@ -7121,7 +7122,47 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 	// 	 * TODO: Implement per-process LAME handler lookup
 	// 	 * TODO: Patch saved RIP to user handler if registered
 	// 	 */
-	// 	pr_debug("[intel_lame_handle]: user mode interrupt, RIP=0x%lx\n", frame->rip);
+	// 	pr_debug("[intel_lame_pebs_handle]: user mode interrupt, RIP=0x%lx\n", frame->rip);
 	// }
+}
+
+/* 
+ * intel_lame_handle - LAME kernel trampoline (called directly from asm_exc_lame)
+ * @frame: pointer to the interrupt frame on the IST stack
+ * 
+ * This functions is for when precise_ip=0 is configured for the event.
+ * Compared to intel_lame_pebs_handle, this function does not maintain the DS area required by PEBS.
+ */
+void intel_lame_handle(struct lame_iret_frame *frame)
+{
+	u64 status;
+	
+	pr_info("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
+		frame->rip, lame_user_mode(frame));
+	
+	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */
+	rdmsrl(MSR_CORE_PERF_GLOBAL_STATUS, status);
+	if (!status) {
+		return;
+	}
+	
+	/* clear overflow bits in IA32_PERF_GLOBAL_OVF_CTRL */
+	/* this acknowledges the PMU events and prevents spurious interrupts */
+	wrmsrl(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
+
+	/* identify which GP counter overflowed and reset it*/
+	/* should we also check fixed counters? */
+	u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
+	if (ctr_ovf_status) {
+		int ctr_ovf_idx = __ffs64(ctr_ovf_status);
+		wrmsrl(MSR_IA32_PERFCTR0+ctr_ovf_idx, (-1000)&x86_pmu.cntval_mask);
+	}
+
+	/*
+	 * TODO: Check if we're in user mode and if a LAME handler is registered
+	 * If so, patch the saved RIP to the user-space handler stub
+	 * This would be the core LAME functionality - transforming a stalling
+	 * memory load into a lightweight branch to user handler
+	 */
 }
 /* end */

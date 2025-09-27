@@ -642,8 +642,10 @@ struct lame_iret_frame {
 
 #if defined(CONFIG_PERF_EVENTS) && defined(CONFIG_CPU_SUP_INTEL)
 extern void intel_lame_handle(struct lame_iret_frame *frame);
+extern void intel_lame_pebs_handle(struct lame_iret_frame *frame);
 #else
 static inline void intel_lame_handle(struct lame_iret_frame *frame) { }
+static inline void intel_lame_pebs_handle(struct lame_iret_frame *frame) { }
 #endif
 /* end */
 
