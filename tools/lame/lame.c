@@ -72,7 +72,7 @@ int enable_lame(pid_t pid, uint64_t sample_period)
     pea.config = (0x41ULL << 8) | 0x2E;
 
     pea.sample_period = sample_period; // e.g. every Nth LLC miss
-    pea.precise_ip = 2;                // request PEBS (precise sampling)
+    pea.precise_ip = 0;                // request regular PMU counting
     pea.exclude_kernel = 1;            // only count user-space
     pea.exclude_hv = 1;                // skip hypervisor
     pea.disabled = 0;                  // start immediately
