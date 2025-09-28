@@ -7072,7 +7072,7 @@ void intel_lame_pebs_handle(struct lame_iret_frame *frame)
 {
 	u64 status;
 
-	pr_info("[intel_lame_pebs_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
+	pr_emerg("[intel_lame_pebs_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
 		frame->rip, lame_user_mode(frame));
 
 	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */
@@ -7136,8 +7136,8 @@ void intel_lame_pebs_handle(struct lame_iret_frame *frame)
 void intel_lame_handle(struct lame_iret_frame *frame)
 {
 	u64 status;
-	
-	pr_info("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
+
+	pr_emerg("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
 		frame->rip, lame_user_mode(frame));
 	
 	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */
