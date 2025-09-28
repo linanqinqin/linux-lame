@@ -7137,26 +7137,33 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 {
 	u64 status;
 
-	pr_emerg("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d\n", 
-		frame->rip, lame_user_mode(frame));
+	pr_emerg("[intel_lame_handle]: asm_exc_lame invoked, RIP=0x%llx, user_mode=%d, lame_counter=%llu\n", 
+		frame->rip, lame_user_mode(frame), lame_counter);
 	
 	/* read IA32_PERF_GLOBAL_STATUS to check for PEBS buffer overflow */
 	rdmsrl(MSR_CORE_PERF_GLOBAL_STATUS, status);
+	pr_emerg("[intel_lame_handle]: IA32_PERF_GLOBAL_STATUS=0x%llx\n", status);
 	if (!status) {
+		pr_emerg("[intel_lame_handle]: IA32_PERF_GLOBAL_STATUS is 0\n");
 		return;
 	}
 	
 	/* clear overflow bits in IA32_PERF_GLOBAL_OVF_CTRL */
 	/* this acknowledges the PMU events and prevents spurious interrupts */
 	wrmsrl(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
+	pr_emerg("[intel_lame_handle]: IA32_PERF_GLOBAL_OVF_CTRL written\n");
 
 	/* identify which GP counter overflowed and reset it*/
 	/* should we also check fixed counters? */
 	u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
+	pr_emerg("[intel_lame_handle]: Counter overflowed status: 0x%llx\n", ctr_ovf_status);
 	if (ctr_ovf_status) {
 		int ctr_ovf_idx = __ffs64(ctr_ovf_status);
+		pr_emerg("[intel_lame_handle]: Counter overflowed: %d\n", ctr_ovf_idx);
 		wrmsrl(MSR_IA32_PERFCTR0+ctr_ovf_idx, (-1000)&x86_pmu.cntval_mask);
 	}
+
+	pr_emerg("[intel_lame_handle]: PMU housekeeping done\n");
 
 	/*
 	 * TODO: Check if we're in user mode and if a LAME handler is registered
