@@ -7148,13 +7148,19 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 		wrmsrl(MSR_IA32_PERFCTR0+ctr_ovf_idx, (-1000)&x86_pmu.cntval_mask);
 	}
 
-	pr_emerg("[intel_lame_handle]: PMU housekeeping done\n");
-
 	/*
 	 * TODO: Check if we're in user mode and if a LAME handler is registered
 	 * If so, patch the saved RIP to the user-space handler stub
 	 * This would be the core LAME functionality - transforming a stalling
 	 * memory load into a lightweight branch to user handler
 	 */
+	if (lame_user_mode(frame)) {
+		struct task_struct *cur_tsk = current;
+		pr_emerg("[intel_lame_handle]: upcall config: is_active=%d, handler_addr=0x%lx, sample_period=%llu\n", 
+			cur_tsk->lame_cfg.is_active, cur_tsk->lame_cfg.handler_addr, cur_tsk->lame_cfg.sample_period);
+	}
+	
+	pr_emerg("[intel_lame_handle]: PMU housekeeping done\n");
+
 }
 /* end */
