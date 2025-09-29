@@ -2800,11 +2800,6 @@ static void intel_pmu_enable_event(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	int idx = hwc->idx;
 
-	/* linanqinqin */
-	lame_counter++;
-	pr_info("[intel_pmu_enable_event] Event enabled, lame_counter: %llu\n", lame_counter);
-	/* end */
-
 	if (unlikely(event->attr.precise_ip))
 		intel_pmu_pebs_enable(event);
 
@@ -2971,11 +2966,6 @@ static int handle_pmi_common(struct pt_regs *regs, u64 status)
 	int handled = 0;
 	u64 intel_ctrl = hybrid(cpuc->pmu, intel_ctrl);
 
-	/* linanqinqin */
-	lame_counter++;
-	pr_emerg("[handle_pmi_common] PMI handler invoked, lame_counter: %llu\n", lame_counter);
-	/* end */
-
 	inc_irq_stat(apic_perf_irqs);
 
 	/*
@@ -3091,11 +3081,6 @@ static int intel_pmu_handle_irq(struct pt_regs *regs)
 	u64 status;
 	int handled;
 	int pmu_enabled;
-
-	/* linanqinqin */
-	lame_counter++;
-	pr_emerg("[intel_pmu_handle_irq] Intel PMU handler invoked, lame_counter: %llu\n", lame_counter);
-	/* end */
 
 	/*
 	 * Save the PMU state.

@@ -1168,9 +1168,6 @@ SYM_CODE_START(asm_exc_nmi)
 	swapgs
 	FENCE_SWAPGS_USER_ENTRY
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rdx
-	/* linanqinqin */
-	incq lame_counter(%rip) /* does it actually increment? */
-	/* linanqinqin */
 	movq	%rsp, %rdx
 	movq	PER_CPU_VAR(pcpu_hot + X86_top_of_stack), %rsp
 	UNWIND_HINT_IRET_REGS base=%rdx offset=8

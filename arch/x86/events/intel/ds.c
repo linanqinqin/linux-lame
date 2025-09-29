@@ -13,10 +13,6 @@
 
 #include "../perf_event.h"
 
-/* linanqinqin */
-extern u64 lame_counter;
-/* end */
-
 /* Waste a full page so it can be mapped into the cpu_entry_area */
 DEFINE_PER_CPU_PAGE_ALIGNED(struct debug_store, cpu_debug_store);
 
@@ -1340,11 +1336,6 @@ void intel_pmu_pebs_enable(struct perf_event *event)
 	struct hw_perf_event *hwc = &event->hw;
 	struct debug_store *ds = cpuc->ds;
 	unsigned int idx = hwc->idx;
-
-	/* linanqinqin */
-	lame_counter++;
-	pr_info("[intel_pmu_pebs_enable] PEBS enabled, lame_counter: %llu\n", lame_counter);
-	/* end */
 
 	hwc->config &= ~ARCH_PERFMON_EVENTSEL_INT;
 
