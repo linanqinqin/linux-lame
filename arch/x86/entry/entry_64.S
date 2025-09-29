@@ -1586,7 +1586,7 @@ SYM_CODE_START(asm_exc_lame)
 	/* switch to kernel CR3 */
 	pushq	%rax
 	pushq	%rcx /* RCX may be clobbered by SWITCH_TO_KERNEL_CR3 alternatives; saved it before switch. */
-	SWITCH_TO_KERNEL_CR3 scratch_reg=%rax
+	// SWITCH_TO_KERNEL_CR3 scratch_reg=%rax /* assumes no PTI */
 
 	/* save all caller regs */
 	pushq	%rdx
@@ -1626,7 +1626,7 @@ SYM_CODE_START(asm_exc_lame)
 	popq	%rdx
 
 	/* switch to user CR3; these macros clobber %rax & %rcx, which are still saved at this point*/
-	SWITCH_TO_USER_CR3 scratch_reg=%rax scratch_reg2=%rcx
+	// SWITCH_TO_USER_CR3 scratch_reg=%rax scratch_reg2=%rcx /* assumes no PTI */
 	popq	%rcx
 	popq	%rax
 
