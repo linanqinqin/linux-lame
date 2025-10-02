@@ -266,16 +266,31 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
         return -EFAULT;
     }
     
-    /* percentage takes precedence over sample_period */
-    if (user_arg.percentage >= 1 && user_arg.percentage <= 100) {
-        current->lame_cfg.percentage = (u64)user_arg.percentage;
-    } else {
-        current->lame_cfg.period_left = (s64)user_arg.sample_period;
+    struct task_struct *task;
+    rcu_read_lock();
+    task = find_task_by_vpid(user_arg.pid);
+    if (task) {
+        get_task_struct(task);
+    } 
+    rcu_read_unlock();
+
+    if (task) {
+        /* percentage takes precedence over sample_period */
+        if (user_arg.percentage >= 1 && user_arg.percentage <= 100) {
+            task->lame_cfg.percentage = (u64)user_arg.percentage;
+        } else {
+            task->lame_cfg.period_left = (s64)user_arg.sample_period;
+        }
+
+        pr_info("[__lame_config_pmu] LAME configured for task %d: percentage=%llu, period_left=%lld\n",
+            task->pid, task->lame_cfg.percentage, task->lame_cfg.period_left);
+        
+        put_task_struct(task);
+    }else {
+        pr_err("[__lame_config_pmu] Task %d not found or already exited\n", user_arg.pid);
+        return -ESRCH;
     }
 
-    pr_info("[__lame_config_pmu] LAME configured for task %d: percentage=%llu, period_left=%lld\n",
-        current->pid, current->lame_cfg.percentage, current->lame_cfg.period_left);
-    
     return 0;
 }
 
