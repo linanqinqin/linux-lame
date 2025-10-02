@@ -54,9 +54,10 @@ int set_idt2_lame(void)
     return 0;
 }
 
-int config_lame(uint64_t percentage, uint64_t sample_period)
+int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
 {
     struct lame_pmu_arg lame_pmu_arg;
+    lame_pmu_arg.pid = pid;
     lame_pmu_arg.percentage = percentage;
     lame_pmu_arg.sample_period = sample_period;
 
@@ -82,7 +83,7 @@ int enable_lame(pid_t pid, uint64_t sample_period)
         return -1;
     }
     /* configure LAME emulation */
-    if (config_lame(0, sample_period)) {
+    if (config_lame(pid, 0, sample_period)) {
         return -1;
     }
 
