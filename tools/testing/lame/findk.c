@@ -48,17 +48,19 @@ void findk(int x_percent, int n) {
         }
     }
 
-    printf("(%d, %d), %d\n", a, b, best_k);
-
     float avg = ((float)best_k/a + (float)(n-best_k)/b) / (float)n;
-    printf("avg: %f\n", avg*100);
+    printf("[(%d, %d), %d][%f][%f]\n", a, b, best_k, avg*100, best_diff);
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("Usage: %s <x_percent> <n>\n", argv[0]);
+
+    if (argc != 2) {
+        printf("Usage: %s <n>\n", argv[0]);
         return 1;
     }
-    findk(atoi(argv[1]), atoi(argv[2]));
+
+    for (int i = 1; i <= 100; i++) {
+        findk(i, atoi(argv[1]));
+    }
     return 0;
 }
