@@ -12,7 +12,6 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <linux/perf_event.h>
-#include <sys/syscall.h>
 
 /* IOCTL command codes */
 #define LAME_IOC_MAGIC 'L'
@@ -42,29 +41,6 @@ struct lame_pmu_arg {
     __u64 percentage;       /* percentage of LLC misses that will be emulated as LAME; range [1, 100], read as percentage/100 */
     __u64 sample_period;    /* a fixed period for resetting the counter */
 };
-
-/* helper function for enabling LAME PMU emulation via perf_event_open */
-static inline int lame_event_open(pid_t pid, uint64_t sample_period) {
-    /* configure LLC load miss event */
-    struct perf_event_attr pea;
-    memset(&pea, 0, sizeof(pea));
-
-    pea.type = PERF_TYPE_RAW;
-    pea.size = sizeof(struct perf_event_attr);
-
-    // MEM_LOAD_RETIRED.L3_MISS: event=0x2E, umask=0x41
-    pea.config = (0x41ULL << 8) | 0x2E;
-
-    pea.sample_period = sample_period; // this is only needed by Linux perf for the initial counter setup; only affects the first overflow
-    pea.precise_ip = 0;                // request regular PMU counting
-    pea.exclude_kernel = 1;            // only count user-space
-    pea.exclude_hv = 1;                // skip hypervisor
-    pea.disabled = 0;                  // start immediately
-    pea.pinned = 1;                    // pin to a counter (avoid multiplex)
-
-    /* tie the event to the pid */
-    return syscall(__NR_perf_event_open, &pea, pid, -1, -1, 0);
-}
 
 #endif /* _UAPI_LINUX_LAME_H */ 
 /* end */
