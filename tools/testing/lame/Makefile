@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O0 -g $(INCLUDE_PATH)
 LDFLAGS = ../../../arch/x86/entry/vdso/vdso64.so
 
-TARGETS = print_active write_active_print int_vdso print_vdso_lame reg add switch_r13 ctxswitch_cycles int_ioctl
+TARGETS = print_active write_active_print int_vdso print_vdso_lame reg add switch_r13 ctxswitch_cycles int_ioctl findk
 
 all: $(TARGETS)
 
@@ -17,6 +17,9 @@ int_vdso: int_vdso.c
 
 print_vdso_lame: print_vdso_lame.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+findk: findk.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 # cpuid: cpuid.c
 # 	$(CC) $(CFLAGS) -o $@ $< 
