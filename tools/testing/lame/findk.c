@@ -49,7 +49,7 @@ void findk(int x_percent, int n) {
     }
 
     float avg = ((float)best_k/a + (float)(n-best_k)/b) / (float)n;
-    printf("[(%d, %d), %d][%f][%f]\n", a, b, best_k, avg*100, best_diff);
+    printf("[%d][%.2f][%.2f][(%d, %d), %d]\n", x_percent, avg*100, best_diff/100.0, a, b, best_k);
 }
 
 int main(int argc, char *argv[]) {
