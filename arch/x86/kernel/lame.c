@@ -184,17 +184,17 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
         
         /* Populate lame_cfg in current task's task_struct */
         current->lame_cfg.is_active = 1;
-        current->lame_cfg.handler_addr = (unsigned long)user_arg.handler_addr;
-        current->lame_cfg.sample_period = 1000; /* Default sample period, will add to lame_arg later */
+        current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
+        current->lame_cfg.period_left = 1000; /* default period; will be updated by ioctl command LAME_CONFIG_PMU */
 
         pr_info("[__lame_register_pebs] LAME registered for task %d: handler=0x%lx, period=%llu\n",
-                current->pid, current->lame_cfg.handler_addr, current->lame_cfg.sample_period);
+                current->pid, current->lame_cfg.handler_addr, current->lame_cfg.period_left);
     } else {
         
         /* Clear lame_cfg in current task's task_struct */
         current->lame_cfg.is_active = 0;
         current->lame_cfg.handler_addr = 0;
-        current->lame_cfg.sample_period = 0;
+        current->lame_cfg.period_left = 0;
 
         pr_info("[__lame_register_pebs] LAME unregistered for task %d\n", current->pid);
     }
@@ -257,6 +257,28 @@ static int __lame_counter_read(struct file *file, unsigned long arg)
     return 0;
 }
 
+static int __lame_config_pmu(struct file *file, unsigned long arg)
+{
+    struct lame_pmu_arg user_arg;
+    
+    if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
+        pr_err("[__lame_config_pmu] Failed to copy argument from user space\n");
+        return -EFAULT;
+    }
+    
+    /* percentage takes precedence over sample_period */
+    if (user_arg.percentage >= 1 && user_arg.percentage <= 100) {
+        current->lame_cfg.percentage = (u64)user_arg.percentage;
+    } else {
+        current->lame_cfg.period_left = (s64)user_arg.sample_period;
+    }
+
+    pr_info("[__lame_config_pmu] LAME configured for task %d: percentage=%llu, period_left=%lld\n",
+        current->pid, current->lame_cfg.percentage, current->lame_cfg.period_left);
+    
+    return 0;
+}
+
 /* Main IOCTL dispatcher */
 static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -284,6 +306,9 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         break;
     case LAME_COUNTER_READ:
         ret = __lame_counter_read(file, arg);
+        break;
+    case LAME_CONFIG_PMU:
+        ret = __lame_config_pmu(file, arg);
         break;
     default:
         pr_err("[lame_ioctl] Unknown ioctl command: 0x%x\n", cmd);

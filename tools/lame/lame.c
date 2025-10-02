@@ -54,10 +54,35 @@ int set_idt2_lame(void)
     return 0;
 }
 
+int config_lame(uint64_t percentage, uint64_t sample_period)
+{
+    struct lame_pmu_arg lame_pmu_arg;
+    lame_pmu_arg.percentage = percentage;
+    lame_pmu_arg.sample_period = sample_period;
+
+    int lame_fd = open(LAME_DEV_PATH, O_RDWR);
+    if (lame_fd < 0) {
+        fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
+        return -1;
+    }
+
+    if (ioctl(lame_fd, LAME_CONFIG_PMU, &lame_pmu_arg)) {
+        fprintf(stderr, "LAME ioctl device config failed with errno: %d\n", errno);
+        close(lame_fd);
+        return -1;
+    }
+    close(lame_fd);
+    return 0;
+}
+
 int enable_lame(pid_t pid, uint64_t sample_period)
 {
     /* set IDT[2] to the LAME kernel trampoline */
     if (set_idt2_lame()) {
+        return -1;
+    }
+    /* configure LAME emulation */
+    if (config_lame(0, sample_period)) {
         return -1;
     }
 
