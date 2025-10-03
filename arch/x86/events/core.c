@@ -1407,6 +1407,9 @@ int x86_perf_event_set_period(struct perf_event *event)
 	 */
 	local64_set(&hwc->prev_count, (u64)-left);
 
+	/* linanqinqin */
+	pr_emerg("[x86_perf_event_set_period] event_base=%lx, left=%lld\n", hwc->event_base, left);
+	/* end */
 	wrmsrl(hwc->event_base, (u64)(-left) & x86_pmu.cntval_mask);
 
 	/*
