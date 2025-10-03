@@ -7137,7 +7137,8 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 	u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
 	if (ctr_ovf_status) {
 		int ctr_ovf_idx = __ffs64(ctr_ovf_status);
-		wrmsrl(MSR_IA32_PERFCTR0+ctr_ovf_idx, ((u64)-READ_ONCE(current->lame_cfg.period_left))&x86_pmu.cntval_mask);
+		s64 left = READ_ONCE(current->lame_cfg.period_left);
+		wrmsrl(MSR_IA32_PMC0+ctr_ovf_idx, (u64)(-left) & x86_pmu.cntval_mask);
 	}
 
 	/* upcall the userspace handler */
