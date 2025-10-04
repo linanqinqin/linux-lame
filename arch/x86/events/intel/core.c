@@ -7134,12 +7134,18 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 
 	/* identify which GP counter overflowed and reset it*/
 	/* should we also check fixed counters? */
-	u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
-	if (ctr_ovf_status) {
-		int ctr_ovf_idx = __ffs64(ctr_ovf_status);
-		s64 left = READ_ONCE(current->lame_cfg.period_left);
-		wrmsrl(MSR_IA32_PMC0+ctr_ovf_idx, (u64)(-left) & x86_pmu.cntval_mask);
-	}
+	// u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
+	// if (ctr_ovf_status) {
+	// 	int ctr_ovf_idx = __ffs64(ctr_ovf_status);
+	// 	s64 left = READ_ONCE(current->lame_cfg.period_left);
+	// 	wrmsrl(MSR_IA32_PMC0+ctr_ovf_idx, (u64)(-left) & x86_pmu.cntval_mask);
+	// }
+	s64 left = READ_ONCE(current->lame_cfg.period_left);
+	/* assmuing PMC0 is the LAME counter */
+	wrmsrl(MSR_IA32_PMC0, (u64)(-left) & x86_pmu.cntval_mask);
+
+	/* ack NMI*/
+	apic_write(APIC_LVTPC, APIC_DM_NMI);
 
 	/* upcall the userspace handler */
 	if (lame_user_mode(frame) && READ_ONCE(current->lame_cfg.is_active)) {
