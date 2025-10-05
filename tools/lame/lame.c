@@ -76,22 +76,24 @@ int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
     return 0;
 }
 
-int enable_lame(pid_t pid, uint64_t sample_period)
+void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
 {
     /* set IDT[2] to the LAME kernel trampoline */
     if (set_idt2_lame()) {
-        return -1;
+        fprintf(stderr, "set_idt2_lame failed\n");
+        return;
     }
     /* configure LAME emulation */
     if (config_lame(pid, 0, sample_period)) {
-        return -1;
+        fprintf(stderr, "config_lame failed\n");
+        return;
     }
 
     /* configure LLC load miss event */
     struct perf_event_attr pea;
     memset(&pea, 0, sizeof(pea));
 
-    pea.type = PERF_TYPE_RAW;
+    pea.type = PERF_TYPE_HW_CACHE;
     pea.size = sizeof(struct perf_event_attr);
 
     // MEM_LOAD_RETIRED.L3_MISS: event=0x2E, umask=0x41
@@ -104,17 +106,37 @@ int enable_lame(pid_t pid, uint64_t sample_period)
     pea.disabled = 0;                  // start immediately
     pea.pinned = 1;                    // pin to a counter (avoid multiplex)
 
-    int fd = perf_event_open(&pea, pid, -1, -1, 0);
-    if (fd == -1) {
-        fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
-        if (set_idt2_nmi()) {
-            fprintf(stderr, "Manual IDT[2] reset is required\n");
+    #define MAX_CPUS 128
+    int fds[MAX_CPUS];
+    for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
+        int fd = perf_event_open(&pea, pid, cpu, -1, 0);
+        if (fd == -1) {
+            fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
+            if (set_idt2_nmi()) {
+                fprintf(stderr, "Manual IDT[2] reset is required\n");
+            }
+            for (int i = cpu_start; i<cpu; i++) {
+                close(fds[i]);
+            }
+            return;
         }
-        return -1;
+        fds[cpu] = fd;
     }
 
-    fprintf(stdout, "LAME emulation enabled on pid %d with sample period %lu\n", pid, sample_period);
-    return fd;
+    fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d with sample period %lu\n", pid, cpu_start, cpu_end, sample_period);
+
+    // Let it run until user presses Enter
+    fprintf(stdout, "Press Enter to disable LAME emulation...\n");
+    getchar();
+
+    for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
+        close(fds[cpu]);
+    }
+    fprintf(stdout, "LAME emulation disabled\n");
+
+    if (set_idt2_nmi()) {
+        fprintf(stderr, "Manual IDT[2] reset is required\n");
+    }
 }
 
 int disable_lame(int fd)
@@ -156,12 +178,13 @@ static void usage(const char *progname)
 {
     fprintf(stderr, "Usage: %s -i <pid> -p <sample_period>\n", progname);
     fprintf(stderr, "  -i <pid>         Target process ID\n");
+    fprintf(stderr, "  -u <cpu>         Target CPU ID or a range (e.g. 0-7)\n");
     fprintf(stderr, "  -p <period>      Sample period (every Nth LLC miss)\n");
     fprintf(stderr, "  -n               Set IDT[2] to stock NMI handler\n");
     fprintf(stderr, "  -l               Set IDT[2] to LAME kernel trampoline\n");
     fprintf(stderr, "  -c               Print LAME counter value\n");
     fprintf(stderr, "  -h               Show this help message\n");
-    fprintf(stderr, "\nExample: %s -i 1234 -p 10\n", progname);
+    fprintf(stderr, "\nExample: %s -i 1234 -u 0-7 -p 10\n", progname);
     fprintf(stderr, "Example: %s -n\n", progname);
     fprintf(stderr, "Example: %s -l\n", progname);
     fprintf(stderr, "Example: %s -c\n", progname);
@@ -169,14 +192,16 @@ static void usage(const char *progname)
 
 int main(int argc, char **argv)
 {
-    pid_t pid = 0;
+    pid_t pid = -1;
     uint64_t period = 0;
+    int cpu_start = -1;         /* range start if specified */
+    int cpu_end = -1;           /* range end if specified */
     int do_set_idt2_nmi = 0;
     int do_set_idt2_lame = 0;
     int do_print_lame_counter = 0;
     int opt;
     
-    while ((opt = getopt(argc, argv, "i:p:nlch")) != -1) {
+    while ((opt = getopt(argc, argv, "i:u:p:nlch")) != -1) {
         switch (opt) {
         case 'i':
             pid = atoi(optarg);
@@ -185,6 +210,35 @@ int main(int argc, char **argv)
                 return 1;
             }
             break;
+        case 'u': {
+            char *dash = strchr(optarg, '-');
+            if (dash) {
+                /* parse range start-end */
+                *dash = '\0';
+                char *start_str = optarg;
+                char *end_str = dash + 1;
+                errno = 0;
+                long s = strtol(start_str, NULL, 0);
+                long e = strtol(end_str, NULL, 0);
+                if (errno != 0 || s < 0 || e < 0 || s > e) {
+                    fprintf(stderr, "Error: Invalid CPU range '%s-%s'\n", start_str, end_str);
+                    return 1;
+                }
+                cpu_start = (int)s;
+                cpu_end = (int)e;
+            } else {
+                /* parse single cpu */
+                errno = 0;
+                long c = strtol(optarg, NULL, 0);
+                if (errno != 0 || c < 0) {
+                    fprintf(stderr, "Error: Invalid CPU '%s'\n", optarg);
+                    return 1;
+                }
+                cpu_start = (int)c;
+                cpu_end = (int)c;
+            }
+            break;
+        }
         case 'p':
             period = strtoull(optarg, NULL, 0);
             if (period == 0) {
@@ -228,16 +282,8 @@ int main(int argc, char **argv)
     else if (do_print_lame_counter) {
         return print_lame_counter();
     }
-    else if (pid && period) {
-
-        int fd = enable_lame(pid, period);
-        if (fd < 0) return 1;
-
-        // Let it run until user presses Enter
-        fprintf(stdout, "Press Enter to disable LAME emulation...\n");
-        getchar();
-
-        disable_lame(fd);
+    else if ((pid || cpu_start >= 0) && period) {
+        enable_lame(pid, cpu_start, cpu_end, period);
     }
     else {
         fprintf(stderr, "Error: Invalid options\n");
