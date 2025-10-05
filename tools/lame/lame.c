@@ -84,9 +84,14 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
         return;
     }
     /* configure LAME emulation */
-    if (config_lame(pid, 0, sample_period)) {
-        fprintf(stderr, "config_lame failed\n");
-        return;
+    if (pid > 0) {
+        if (config_lame(pid, 0, sample_period)) {
+            fprintf(stderr, "config_lame failed\n");
+            if (set_idt2_nmi()) {
+                fprintf(stderr, "Manual IDT[2] reset is required\n");
+            }
+            return;
+        }
     }
 
     /* configure LLC load miss event */
