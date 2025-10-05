@@ -7132,22 +7132,12 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 	/* this acknowledges the PMU events and prevents spurious interrupts */
 	wrmsrl(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
 
-	/* identify which GP counter overflowed and reset it*/
-	/* should we also check fixed counters? */
-	// u64 ctr_ovf_status = status & ((1ULL << x86_pmu.num_counters) - 1);
-	// if (ctr_ovf_status) {
-	// 	int ctr_ovf_idx = __ffs64(ctr_ovf_status);
-	// 	s64 left = READ_ONCE(current->lame_cfg.period_left);
-	// 	wrmsrl(MSR_IA32_PMC0+ctr_ovf_idx, (u64)(-left) & x86_pmu.cntval_mask);
-	// }
-	s64 left = READ_ONCE(current->lame_cfg.period_left);
 	/* assmuing PMC0 is the LAME counter */
+	s64 left = READ_ONCE(current->lame_cfg.period_left);
 	wrmsrl(MSR_IA32_PMC0, (u64)(-left) & x86_pmu.cntval_mask);
 
-	/* ack NMI*/
-	apic_write(APIC_LVTPC, APIC_DM_NMI);
-
-	/* upcall the userspace handler */
+	/* upcall the userspace handler only if the user program has registered a handler.
+	 * this should work safely for per-task and per-core perf_event_open() */
 	if (lame_user_mode(frame) && READ_ONCE(current->lame_cfg.is_active)) {
 
 		frame->rsp -= 8;
@@ -7156,17 +7146,6 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 		/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
 		*(u64 __user *)frame->rsp = frame->rip;
 		asm volatile("clac" ::: "memory");
-
-		/* do not use put_user() in NMI context */
-		/* push the original user RIP onto the user stack so that the userspace handler knows where to return to. 
-		 * put_user() catches the rare case where frame->rsp points to an invalid address;
-		 * if invalid, upcall is cancelled. */
-		// frame->rsp -= 8;
-		// if (put_user(user_rip, (u64 __user *)frame->rsp)) {
-		// 	frame->rsp += 8;
-		// 	pr_emerg("[intel_lame_handle]: failed to push RIP to user stack\n");
-		// 	return;
-		// }
 
 		/* patch the IST frame to jump to the user-space handler */
 		frame->rip = READ_ONCE(current->lame_cfg.handler_addr);
