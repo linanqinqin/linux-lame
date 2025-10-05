@@ -267,7 +267,7 @@ int main(int argc, char **argv)
     
     if ((do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter > 1)
         || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 0 && pid == 0 && period == 0)
-        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 1 && pid+period != 0)) {
+        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 1 && (pid != -1 || cpu_start != -1 || period != 0))) {
         fprintf(stderr, "Error: Invalid options\n");
         usage(argv[0]);
         return -1;
