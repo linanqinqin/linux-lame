@@ -489,6 +489,9 @@ static DEFINE_PER_CPU(enum nmi_states, nmi_state);
 static DEFINE_PER_CPU(unsigned long, nmi_cr2);
 static DEFINE_PER_CPU(unsigned long, nmi_dr7);
 
+/* linanqinqin */
+extern void lame_perf_event_nmi_handler(struct pt_regs *regs);
+/* end */
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {
 	irqentry_state_t irq_state;
@@ -541,7 +544,14 @@ nmi_restart:
 			WRITE_ONCE(nsp->idt_nmi_seq, nsp->idt_nmi_seq + 1);
 			WARN_ON_ONCE(!(nsp->idt_nmi_seq & 0x1));
 		}
+		/* linanqinqin */
+		/* In LAME mode for user-space, bypass generic NMI dispatch
+		 * and invoke the PMU handler fast path wrapper. */
+		if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active))
+			lame_perf_event_nmi_handler(regs);
+		else
 		default_do_nmi(regs);
+		/* end */
 		if (IS_ENABLED(CONFIG_NMI_CHECK_CPU)) {
 			WRITE_ONCE(nsp->idt_nmi_seq, nsp->idt_nmi_seq + 1);
 			WARN_ON_ONCE(nsp->idt_nmi_seq & 0x1);
