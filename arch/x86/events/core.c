@@ -1751,6 +1751,8 @@ perf_event_nmi_handler(unsigned int cmd, struct pt_regs *regs)
 NOKPROBE_SYMBOL(perf_event_nmi_handler);
 
 /* linanqinqin */
+void lame_perf_event_nmi_handler(struct pt_regs *regs);
+
 /* A minimal PMU-only NMI handler for LAME fast path. */
 void lame_perf_event_nmi_handler(struct pt_regs *regs)
 {
