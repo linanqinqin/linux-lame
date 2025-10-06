@@ -3147,9 +3147,6 @@ done:
 	 */
 	if (late_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
-	/* linanqinqin */
-	pr_emerg("[intel_pmu_handle_irq] user_mode=%d, rip=%lx, rsp=%lx\n", user_mode(regs), regs->ip, regs->sp);
-	/* end */
 	return handled;
 }
 
