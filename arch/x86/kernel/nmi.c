@@ -495,9 +495,9 @@ DEFINE_IDTENTRY_RAW(exc_nmi)
 	struct nmi_stats *nsp = this_cpu_ptr(&nmi_stats);
 
 	/* linanqinqin */
-	pr_emerg("[exc_nmi] user_mode=%d, rip=%lx, rsp=%lx\n", user_mode(regs), regs->ip, regs->rsp);
+	pr_emerg("[exc_nmi] user_mode=%d, rip=%lx, rsp=%lx\n", user_mode(regs), regs->ip, regs->sp);
 	/* end */
-	
+
 	/*
 	 * Re-enable NMIs right here when running as an SEV-ES guest. This might
 	 * cause nested NMIs, but those can be handled safely.
