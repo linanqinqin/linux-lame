@@ -3147,8 +3147,88 @@ done:
 	 */
 	if (late_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
+	return handled;
+}
 
-	/* linanqinqin */
+/* linanqinqin */
+int intel_lame_handle_irq(struct pt_regs *regs);
+
+int intel_lame_handle_irq(struct pt_regs *regs)
+{
+	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
+	bool late_ack = hybrid_bit(cpuc->pmu, late_ack);
+	bool mid_ack = hybrid_bit(cpuc->pmu, mid_ack);
+	int loops;
+	u64 status;
+	int handled;
+	int pmu_enabled;
+
+	/*
+	 * Save the PMU state.
+	 * It needs to be restored when leaving the handler.
+	 */
+	pmu_enabled = cpuc->enabled;
+	/*
+	 * In general, the early ACK is only applied for old platforms.
+	 * For the big core starts from Haswell, the late ACK should be
+	 * applied.
+	 * For the small core after Tremont, we have to do the ACK right
+	 * before re-enabling counters, which is in the middle of the
+	 * NMI handler.
+	 */
+	if (!late_ack && !mid_ack)
+		apic_write(APIC_LVTPC, APIC_DM_NMI);
+	intel_bts_disable_local();
+	cpuc->enabled = 0;
+	__intel_pmu_disable_all(true);
+	handled = intel_pmu_drain_bts_buffer();
+	handled += intel_bts_interrupt();
+	status = intel_pmu_get_status();
+	if (!status)
+		goto done;
+
+	loops = 0;
+again:
+	intel_pmu_lbr_read();
+	intel_pmu_ack_status(status);
+	if (++loops > 100) {
+		static bool warned;
+
+		if (!warned) {
+			WARN(1, "perfevents: irq loop stuck!\n");
+			perf_event_print_debug();
+			warned = true;
+		}
+		intel_pmu_reset();
+		goto done;
+	}
+
+	handled += handle_pmi_common(regs, status);
+
+	/*
+	 * Repeat if there is more work to be done:
+	 */
+	status = intel_pmu_get_status();
+	if (status)
+		goto again;
+
+done:
+	if (mid_ack)
+		apic_write(APIC_LVTPC, APIC_DM_NMI);
+	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
+	cpuc->enabled = pmu_enabled;
+	if (pmu_enabled)
+		__intel_pmu_enable_all(0, true);
+	intel_bts_enable_local();
+
+	/*
+	 * Only unmask the NMI after the overflow counters
+	 * have been reset. This avoids spurious NMIs on
+	 * Haswell CPUs.
+	 */
+	if (late_ack)
+		apic_write(APIC_LVTPC, APIC_DM_NMI);
+
 	/* set up the upcall to the userspace handler only if the user program has registered a handler.
 	 * this should work safely for per-task and per-core perf_event_open() */
 	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
@@ -3163,10 +3243,10 @@ done:
 		/* patch the IST frame to jump to the user-space handler */
 		regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
 	}
-	/* end */
 
 	return handled;
 }
+/* end */
 
 static struct event_constraint *
 intel_bts_constraints(struct perf_event *event)

@@ -1752,11 +1752,13 @@ NOKPROBE_SYMBOL(perf_event_nmi_handler);
 
 /* linanqinqin */
 void lame_perf_event_nmi_handler(struct pt_regs *regs);
+extern int intel_lame_handle_irq(struct pt_regs *regs);
 
 /* A minimal PMU-only NMI handler for LAME fast path. */
 void lame_perf_event_nmi_handler(struct pt_regs *regs)
 {
-    static_call(x86_pmu_handle_irq)(regs);
+	// static_call(x86_pmu_handle_irq)(regs); 
+	intel_lame_handle_irq(regs);
 }
 NOKPROBE_SYMBOL(lame_perf_event_nmi_handler);
 /* end */
