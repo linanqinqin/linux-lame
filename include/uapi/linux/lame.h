@@ -16,7 +16,7 @@
 /* IOCTL command codes */
 #define LAME_IOC_MAGIC 'L'
 /* register userspace handler*/
-#define LAME_REGISTER_PEBS _IOW(LAME_IOC_MAGIC, 1, struct lame_arg)
+#define LAME_REGISTER_PMU _IOW(LAME_IOC_MAGIC, 1, struct lame_arg)
 #define LAME_REGISTER_INT _IOW(LAME_IOC_MAGIC, 2, struct lame_arg)
 /* manipulate IDT[2] for pebs emulation */
 #define LAME_IDT2_SET_NMI _IO(LAME_IOC_MAGIC, 3)

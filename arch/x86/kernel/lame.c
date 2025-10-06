@@ -162,20 +162,20 @@ static int __lame_register_int(struct file *file, unsigned long arg)
 }
 
 /**
- * lame_register_per_task - Register or unregister a LAME handler for the current task
+ * __lame_register_pmu - Register or unregister a LAME handler for the current task
  * This function populates the lame_cfg in the current task's task_struct
  * @file: The ioctl file pointer
  * @arg: The argument pointer to the lame_arg structure
  *
  * Returns: 0 on success, negative error code on failure
  */
-static int __lame_register_pebs(struct file *file, unsigned long arg)
+static int __lame_register_pmu(struct file *file, unsigned long arg)
 {
     struct lame_arg user_arg;
 
     /* Copy argument from user space */
     if (copy_from_user(&user_arg, (void __user *)arg, sizeof(user_arg))) {
-        pr_err("[__lame_register_pebs] Failed to copy argument from user space\n");
+        pr_err("[__lame_register_pmu] Failed to copy argument from user space\n");
         return -EFAULT;
     }
     
@@ -187,7 +187,7 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
         current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
         current->lame_cfg.period_left = 1000; /* default period; will be updated by ioctl command LAME_CONFIG_PMU */
 
-        pr_info("[__lame_register_pebs] LAME registered for task %d: handler=0x%lx, period=%llu\n",
+        pr_info("[__lame_register_pmu] LAME registered for task %d: handler=0x%lx, period=%llu\n",
                 current->pid, current->lame_cfg.handler_addr, current->lame_cfg.period_left);
     } else {
         
@@ -196,7 +196,7 @@ static int __lame_register_pebs(struct file *file, unsigned long arg)
         current->lame_cfg.handler_addr = 0;
         current->lame_cfg.period_left = 0;
 
-        pr_info("[__lame_register_pebs] LAME unregistered for task %d\n", current->pid);
+        pr_info("[__lame_register_pmu] LAME unregistered for task %d\n", current->pid);
     }
     
     return 0;
@@ -307,8 +307,8 @@ static long lame_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     
     /* Dispatch to appropriate handler */
     switch (cmd) {
-    case LAME_REGISTER_PEBS:
-        ret = __lame_register_pebs(file, arg);
+    case LAME_REGISTER_PMU:
+        ret = __lame_register_pmu(file, arg);
         break;
     case LAME_REGISTER_INT:
         ret = __lame_register_int(file, arg);

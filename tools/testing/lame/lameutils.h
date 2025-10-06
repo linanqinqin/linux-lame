@@ -72,7 +72,7 @@ static inline int lame_handler_register_self(void *handler, int enable)
     arg.handler_addr = enable ? (__u64)handler : 0;
 
     /* Perform the ioctl */
-    ret = ioctl(fd, LAME_REGISTER_PEBS, &arg);
+    ret = ioctl(fd, LAME_REGISTER_PMU, &arg);
     
     /* Close the device */
     close(fd);
