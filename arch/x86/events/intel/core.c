@@ -3147,6 +3147,24 @@ done:
 	 */
 	if (late_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
+
+	/* linanqinqin */
+	/* set up the upcall to the userspace handler only if the user program has registered a handler.
+	 * this should work safely for per-task and per-core perf_event_open() */
+	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
+
+		regs->sp -= 8;
+		/* SMAP: briefly allow/disallow supervisor write to user memory */
+		asm volatile("stac" ::: "memory");
+		/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
+		*(u64 __user *)regs->sp = regs->ip;
+		asm volatile("clac" ::: "memory");
+
+		/* patch the IST frame to jump to the user-space handler */
+		regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
+	}
+	/* end */
+
 	return handled;
 }
 
