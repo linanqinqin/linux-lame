@@ -3153,6 +3153,23 @@ done:
 /* linanqinqin */
 int intel_lame_handle_irq(struct pt_regs *regs);
 
+static inline void intel_lame_upcall(struct pt_regs *regs) {
+	/* set up the upcall to the userspace handler only if the user program has registered a handler.
+	 * this should work safely for per-task and per-core perf_event_open() */
+	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
+
+		regs->sp -= 8;
+		/* SMAP: briefly allow/disallow supervisor write to user memory */
+		asm volatile("stac" ::: "memory");
+		/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
+		*(u64 __user *)regs->sp = regs->ip;
+		asm volatile("clac" ::: "memory");
+
+		/* patch the IST frame to jump to the user-space handler */
+		regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
+	}
+}
+
 int intel_lame_handle_irq(struct pt_regs *regs)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
@@ -3178,18 +3195,14 @@ int intel_lame_handle_irq(struct pt_regs *regs)
 	 */
 	if (!late_ack && !mid_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
-	intel_bts_disable_local();
 	cpuc->enabled = 0;
 	__intel_pmu_disable_all(true);
-	handled = intel_pmu_drain_bts_buffer();
-	handled += intel_bts_interrupt();
 	status = intel_pmu_get_status();
 	if (!status)
 		goto done;
 
 	loops = 0;
 again:
-	intel_pmu_lbr_read();
 	intel_pmu_ack_status(status);
 	if (++loops > 100) {
 		static bool warned;
@@ -3215,11 +3228,13 @@ again:
 done:
 	if (mid_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
+
+	intel_lame_upcall(regs);
+	
 	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
 	cpuc->enabled = pmu_enabled;
 	if (pmu_enabled)
 		__intel_pmu_enable_all(0, true);
-	intel_bts_enable_local();
 
 	/*
 	 * Only unmask the NMI after the overflow counters
@@ -3228,21 +3243,6 @@ done:
 	 */
 	if (late_ack)
 		apic_write(APIC_LVTPC, APIC_DM_NMI);
-
-	/* set up the upcall to the userspace handler only if the user program has registered a handler.
-	 * this should work safely for per-task and per-core perf_event_open() */
-	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
-
-		regs->sp -= 8;
-		/* SMAP: briefly allow/disallow supervisor write to user memory */
-		asm volatile("stac" ::: "memory");
-		/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
-		*(u64 __user *)regs->sp = regs->ip;
-		asm volatile("clac" ::: "memory");
-
-		/* patch the IST frame to jump to the user-space handler */
-		regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
-	}
 
 	return handled;
 }
