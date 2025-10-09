@@ -180,7 +180,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
     struct perf_event_attr pea;
     memset(&pea, 0, sizeof(pea));
 
-    pea.type = PERF_TYPE_HW_CACHE;
+    pea.type = PERF_TYPE_RAW;
     pea.size = sizeof(struct perf_event_attr);
 
     // MEM_LOAD_RETIRED.L3_MISS: event=0x2E, umask=0x41
