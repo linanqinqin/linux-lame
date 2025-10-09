@@ -82,13 +82,13 @@ static uint64_t get_lame_counter(void)
     int lame_fd = open(LAME_DEV_PATH, O_RDWR);
     if (lame_fd < 0) {
         fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
-        return -1;
+        return 0;
     }
 
     if (ioctl(lame_fd, LAME_COUNTER_READ, &cntr_val)) {
         fprintf(stderr, "LAME ioctl device read counter failed with errno: %d\n", errno);
         close(lame_fd);
-        return -1;
+        return 0;
     }
     close(lame_fd);
 
@@ -161,16 +161,9 @@ int disable_lame(int fd)
     return 0;
 }
 
-int print_lame_counter(void)
+void print_lame_counter(void)
 {
-    uint64_t cntr_val = get_lame_counter();
-    if (cntr_val < 0) {
-        return cntr_val;
-    }
-
-    fprintf(stdout, "LAME counter value: %lu\n", cntr_val);
-    
-    return 0;
+    fprintf(stdout, "LAME counter value: %lu\n", get_lame_counter());
 }
 
 static void usage(const char *progname)
