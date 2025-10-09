@@ -229,7 +229,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
 
     struct lame_counter cntr_vals_end;
     get_lame_counter(&cntr_vals_end);
-    fprintf(stdout, "LAME counted: %lu, %lu\n", cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
+    fprintf(stdout, "LAME counted: %llu, %llu\n", cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
             cntr_vals_end.handler_upcall - cntr_vals_start.handler_upcall);
 
     return 0;
@@ -242,7 +242,7 @@ int print_lame_counter(void)
         fprintf(stderr, "get_lame_counter failed\n");
         return -1;
     }
-    fprintf(stdout, "LAME counter values: %lu, %lu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall);
+    fprintf(stdout, "LAME counter values: %llu, %llu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall);
     return 0;
 }
 
