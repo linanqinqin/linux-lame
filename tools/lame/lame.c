@@ -78,18 +78,10 @@ int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
 
 void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
 {
-    /* set IDT[2] to the LAME kernel trampoline */
-    if (set_idt2_lame()) {
-        fprintf(stderr, "set_idt2_lame failed\n");
-        return;
-    }
     /* configure LAME emulation */
     if (pid > 0) {
         if (config_lame(pid, 0, sample_period)) {
             fprintf(stderr, "config_lame failed\n");
-            if (set_idt2_nmi()) {
-                fprintf(stderr, "Manual IDT[2] reset is required\n");
-            }
             return;
         }
     }
@@ -117,9 +109,6 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
         int fd = perf_event_open(&pea, pid, cpu, -1, 0);
         if (fd == -1) {
             fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
-            if (set_idt2_nmi()) {
-                fprintf(stderr, "Manual IDT[2] reset is required\n");
-            }
             for (int i = cpu_start; i<cpu; i++) {
                 close(fds[i]);
             }
@@ -138,10 +127,6 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
         close(fds[cpu]);
     }
     fprintf(stdout, "LAME emulation disabled\n");
-
-    if (set_idt2_nmi()) {
-        fprintf(stderr, "Manual IDT[2] reset is required\n");
-    }
 }
 
 int disable_lame(int fd)
@@ -151,14 +136,10 @@ int disable_lame(int fd)
         fprintf(stdout, "LAME emulation disabled\n");
     }
 
-    if (set_idt2_nmi()) {
-        fprintf(stderr, "Manual IDT[2] reset is required\n");
-    }
-
     return 0;
 }
 
-int print_lame_counter(void)
+static uint64_t get_lame_counter(void)
 {
     uint64_t cntr_val;
     int lame_fd = open(LAME_DEV_PATH, O_RDWR);
@@ -174,6 +155,16 @@ int print_lame_counter(void)
     }
     close(lame_fd);
 
+    return cntr_val;
+}
+
+int print_lame_counter(void)
+{
+    uint64_t cntr_val = get_lame_counter();
+    if (cntr_val < 0) {
+        return cntr_val;
+    }
+    
     fprintf(stdout, "LAME counter value: %lu\n", cntr_val);
     
     return 0;
