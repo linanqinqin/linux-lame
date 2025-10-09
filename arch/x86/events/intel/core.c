@@ -3153,6 +3153,43 @@ done:
 /* linanqinqin */
 int intel_lame_handle_irq(struct pt_regs *regs);
 
+static int lame_handle_pmi_common(struct pt_regs *regs, u64 status)
+{
+	struct perf_sample_data data;
+	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
+	int handled = 0;
+
+	status &= ~(GLOBAL_STATUS_COND_CHG |
+		    GLOBAL_STATUS_ASIF |
+		    GLOBAL_STATUS_LBRS_FROZEN);
+	if (!status)
+		return 0;
+
+	status &= ~(cpuc->pebs_enabled & x86_pmu.pebs_capable);
+
+	status |= cpuc->intel_cp_status;
+
+	/* check only PMC0, given LAME is always enabled on PMC0 */
+	if (status & (1ULL << 0)) {
+		struct perf_event *event = cpuc->events[0];
+
+		handled++;
+
+		if (!test_bit(0, cpuc->active_mask))
+			return handled;
+
+		if (!intel_pmu_save_and_restart(event))
+			return handled;
+
+		perf_sample_data_init(&data, 0, event->hw.last_period);
+
+		if (perf_event_overflow(event, &data, regs))
+			x86_pmu_stop(event, 0);
+	}
+
+	return handled;
+}
+
 extern u64 lame_counter_handler_upcall;
 
 static inline void intel_lame_upcall(struct pt_regs *regs) {
@@ -3220,7 +3257,7 @@ again:
 		goto done;
 	}
 
-	handled += handle_pmi_common(regs, status);
+	handled += lame_handle_pmi_common(regs, status);
 
 	/*
 	 * Repeat if there is more work to be done:
