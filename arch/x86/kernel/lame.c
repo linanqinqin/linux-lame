@@ -37,8 +37,10 @@ extern void asm_exc_nmi(void);
 extern void asm_exc_lame(void);
 
 /* global lame counter */
-u64 lame_counter __aligned(64);
-EXPORT_SYMBOL(lame_counter);
+u64 lame_counter_nmi_entry __aligned(64);
+u64 lame_counter_handler_upcall __aligned(64);
+EXPORT_SYMBOL(lame_counter_nmi_entry);
+EXPORT_SYMBOL(lame_counter_handler_upcall);
 
 /**
  * pack_gate_lame - Create a gate descriptor for LAME handler
@@ -246,11 +248,13 @@ static int __lame_idt2_set_lame(struct file *file)
 
 static int __lame_counter_read(struct file *file, unsigned long arg)
 {
-    u64 cntr_val;
+    struct lame_counter cntr_vals;
 
-    cntr_val = READ_ONCE(lame_counter);
-    if (copy_to_user((u64 __user *)arg, &cntr_val, sizeof(cntr_val))) {
-        pr_err("[__lame_counter_read] Failed to copy counter value to user space\n");
+    cntr_vals.nmi_entry = READ_ONCE(lame_counter_nmi_entry);
+    cntr_vals.handler_upcall = READ_ONCE(lame_counter_handler_upcall);
+
+    if (copy_to_user((struct lame_counter __user *)arg, &cntr_vals, sizeof(cntr_vals))) {
+        pr_err("[__lame_counter_read] Failed to copy counter values to user space\n");
         return -EFAULT;
     }
 

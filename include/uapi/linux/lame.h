@@ -22,7 +22,7 @@
 #define LAME_IDT2_SET_NMI _IO(LAME_IOC_MAGIC, 3)
 #define LAME_IDT2_SET_LAME _IO(LAME_IOC_MAGIC, 4)
 /* LAME internal monitor */
-#define LAME_COUNTER_READ _IOR(LAME_IOC_MAGIC, 5, __u64)
+#define LAME_COUNTER_READ _IOR(LAME_IOC_MAGIC, 5, struct lame_counter)
 /* LAME PMU emulation configure */
 #define LAME_CONFIG_PMU _IOW(LAME_IOC_MAGIC, 6, struct lame_pmu_arg)
 
@@ -45,6 +45,12 @@ struct lame_pmu_arg {
     /* percentage takes precedence over sample_period */
     __u64 percentage;       /* percentage of LLC misses that will be emulated as LAME; range [1, 100], read as percentage/100 */
     __u64 sample_period;    /* a fixed period for resetting the counter */
+};
+
+/* LAME counters */
+struct lame_counter {
+    __u64 nmi_entry;
+    __u64 handler_upcall;
 };
 
 #endif /* _UAPI_LINUX_LAME_H */ 

@@ -3153,10 +3153,14 @@ done:
 /* linanqinqin */
 int intel_lame_handle_irq(struct pt_regs *regs);
 
+extern u64 lame_counter_handler_upcall;
+
 static inline void intel_lame_upcall(struct pt_regs *regs) {
 	/* set up the upcall to the userspace handler only if the user program has registered a handler.
 	 * this should work safely for per-task and per-core perf_event_open() */
 	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
+
+		lame_counter_handler_upcall++;
 
 		regs->sp -= 8;
 		/* SMAP: briefly allow/disallow supervisor write to user memory */
