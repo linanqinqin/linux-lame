@@ -76,6 +76,25 @@ int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
     return 0;
 }
 
+static uint64_t get_lame_counter(void)
+{
+    uint64_t cntr_val;
+    int lame_fd = open(LAME_DEV_PATH, O_RDWR);
+    if (lame_fd < 0) {
+        fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
+        return -1;
+    }
+
+    if (ioctl(lame_fd, LAME_COUNTER_READ, &cntr_val)) {
+        fprintf(stderr, "LAME ioctl device read counter failed with errno: %d\n", errno);
+        close(lame_fd);
+        return -1;
+    }
+    close(lame_fd);
+
+    return cntr_val;
+}
+
 void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
 {
     /* configure LAME emulation */
@@ -140,25 +159,6 @@ int disable_lame(int fd)
     }
 
     return 0;
-}
-
-static uint64_t get_lame_counter(void)
-{
-    uint64_t cntr_val;
-    int lame_fd = open(LAME_DEV_PATH, O_RDWR);
-    if (lame_fd < 0) {
-        fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
-        return -1;
-    }
-
-    if (ioctl(lame_fd, LAME_COUNTER_READ, &cntr_val)) {
-        fprintf(stderr, "LAME ioctl device read counter failed with errno: %d\n", errno);
-        close(lame_fd);
-        return -1;
-    }
-    close(lame_fd);
-
-    return cntr_val;
 }
 
 int print_lame_counter(void)
