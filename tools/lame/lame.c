@@ -86,6 +86,8 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
         }
     }
 
+    uint64_t cntr_val_start = get_lame_counter();
+
     /* configure LLC load miss event */
     struct perf_event_attr pea;
     memset(&pea, 0, sizeof(pea));
@@ -126,6 +128,7 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
     for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
         close(fds[cpu]);
     }
+    fprintf(stdout, "LAME counted: %lu\n", get_lame_counter() - cntr_val_start);
     fprintf(stdout, "LAME emulation disabled\n");
 }
 
@@ -164,7 +167,7 @@ int print_lame_counter(void)
     if (cntr_val < 0) {
         return cntr_val;
     }
-    
+
     fprintf(stdout, "LAME counter value: %lu\n", cntr_val);
     
     return 0;
