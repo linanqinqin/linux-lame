@@ -79,23 +79,22 @@ int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
     return 0;
 }
 
-static uint64_t get_lame_counter(void)
+static int get_lame_counter(struct lame_counter *cntr_vals)
 {
-    uint64_t cntr_val;
     int lame_fd = open(LAME_DEV_PATH, O_RDWR);
     if (lame_fd < 0) {
         fprintf(stderr, "LAME ioctl device open failed with errno: %d\n", errno);
-        return 0;
+        return -1;
     }
 
-    if (ioctl(lame_fd, LAME_COUNTER_READ, &cntr_val)) {
+    if (ioctl(lame_fd, LAME_COUNTER_READ, cntr_vals)) {
         fprintf(stderr, "LAME ioctl device read counter failed with errno: %d\n", errno);
         close(lame_fd);
-        return 0;
+        return -1;
     }
     close(lame_fd);
 
-    return cntr_val;
+    return 0;
 }
 
 /* Global variables for cleanup */
@@ -174,7 +173,8 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
         }
     }
 
-    uint64_t cntr_val_start = get_lame_counter();
+    struct lame_counter cntr_vals_start;
+    get_lame_counter(&cntr_vals_start);
 
     /* configure LLC load miss event */
     struct perf_event_attr pea;
@@ -227,14 +227,23 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
     /* Cleanup */
     disable_lame();
 
-    fprintf(stdout, "LAME counted: %lu\n", get_lame_counter() - cntr_val_start);
+    struct lame_counter cntr_vals_end;
+    get_lame_counter(&cntr_vals_end);
+    fprintf(stdout, "LAME counted: %lu, %lu\n", cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
+            cntr_vals_end.handler_upcall - cntr_vals_start.handler_upcall);
 
     return 0;
 }
 
-void print_lame_counter(void)
+int print_lame_counter(void)
 {
-    fprintf(stdout, "LAME counter value: %lu\n", get_lame_counter());
+    struct lame_counter cntr_vals;
+    if (get_lame_counter(&cntr_vals)) {
+        fprintf(stderr, "get_lame_counter failed\n");
+        return -1;
+    }
+    fprintf(stdout, "LAME counter values: %lu, %lu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall);
+    return 0;
 }
 
 static void usage(const char *progname)
@@ -343,8 +352,7 @@ int main(int argc, char **argv)
         return set_idt2_lame();
     }
     else if (do_print_lame_counter) {
-        print_lame_counter();
-        return 0;
+        return print_lame_counter();
     }
     else if ((pid || cpu_start >= 0) && period) {
         return enable_lame(pid, cpu_start, cpu_end, period);
