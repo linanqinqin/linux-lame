@@ -272,7 +272,8 @@ int main(int argc, char **argv)
         return set_idt2_lame();
     }
     else if (do_print_lame_counter) {
-        return print_lame_counter();
+        print_lame_counter();
+        return 0;
     }
     else if ((pid || cpu_start >= 0) && period) {
         enable_lame(pid, cpu_start, cpu_end, period);
