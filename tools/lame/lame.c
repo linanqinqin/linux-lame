@@ -13,6 +13,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/lame.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 static inline long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
                             int cpu, int group_fd, unsigned long flags)
@@ -95,13 +98,79 @@ static uint64_t get_lame_counter(void)
     return cntr_val;
 }
 
-void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
+/* Global variables for cleanup */
+#define MAX_CPUS 128
+static int global_fds[MAX_CPUS];
+static int global_cpu_start = -1;
+static int global_cpu_end = -1;
+static pid_t global_pid = -1;
+static volatile sig_atomic_t shutdown_requested = 0;
+
+/* Signal handler for graceful shutdown */
+static void signal_handler(int sig)
 {
+    if (sig == SIGINT || sig == SIGTERM) {
+        shutdown_requested = 1;
+    }
+}
+
+/* Cleanup function for LAME emulation */
+static void disable_lame(void)
+{
+    if (global_cpu_start >= 0 && global_cpu_end >= 0) {
+        for (int cpu = global_cpu_start; cpu <= global_cpu_end; cpu++) {
+            if (global_fds[cpu] >= 0) {
+                close(global_fds[cpu]);
+            }
+        }
+    }
+}
+
+/* Check if target PID is still running */
+static int is_pid_running(pid_t pid)
+{
+    if (pid <= 0) return 1; /* No PID to monitor */
+    
+    int result = kill(pid, 0);
+    if (result == 0) {
+        return 1; /* PID is running */
+    } else if (errno == ESRCH) {
+        return 0; /* PID does not exist */
+    } else {
+        return 1; /* Other error, assume running */
+    }
+}
+
+int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
+{
+
+    if ((pid < 0 && cpu_start < 0) || sample_period <= 0) { 
+        fprintf(stderr, "Error: Invalid options\n");
+        return -1;
+    }
+    if (cpu_end >= MAX_CPUS) {
+        fprintf(stderr, "Error: CPU range exceeds MAX_CPUS=128\n");
+        return -1;
+    }
+
+    /* Set up signal handlers for graceful shutdown */
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    
+    /* Store global state for cleanup */
+    global_pid = pid;
+    global_cpu_start = cpu_start;
+    global_cpu_end = cpu_end;
+    
     /* configure LAME emulation */
     if (pid > 0) {
         if (config_lame(pid, 0, sample_period)) {
             fprintf(stderr, "config_lame failed\n");
-            return;
+            return -1;
         }
     }
 
@@ -124,39 +193,41 @@ void enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
     pea.disabled = 0;                  // start immediately
     pea.pinned = 1;                    // pin to a counter (avoid multiplex)
 
-    #define MAX_CPUS 128
-    int fds[MAX_CPUS];
     for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
         int fd = perf_event_open(&pea, pid, cpu, -1, 0);
         if (fd == -1) {
             fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
             for (int i = cpu_start; i<cpu; i++) {
-                close(fds[i]);
+                close(global_fds[i]);
             }
-            return;
+            return -1;
         }
-        fds[cpu] = fd;
+        global_fds[cpu] = fd;
     }
 
-    fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d with sample period %lu\n", pid, cpu_start, cpu_end, sample_period);
-
-    // Let it run until user presses Enter
-    fprintf(stdout, "Press Enter to disable LAME emulation...\n");
-    getchar();
-
-    for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
-        close(fds[cpu]);
+    if (pid > 0 && cpu_start >= 0) {
+        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d with sample period %lu\n", pid, cpu_start, cpu_end, sample_period);
     }
+    else if (pid > 0 && cpu_start < 0) {
+        fprintf(stdout, "LAME emulation enabled on pid %d with sample period %lu\n", pid, sample_period);
+    }
+    else if (pid < 0 && cpu_start >= 0) {
+        fprintf(stdout, "LAME emulation enabled on cores %d-%d with sample period %lu\n", cpu_start, cpu_end, sample_period);
+    }
+    
+    /* Main monitoring loop */
+    while (!shutdown_requested) {
+        if (pid > 0 && !is_pid_running(pid)) {
+            fprintf(stdout, "Target PID %d has terminated\n", pid);
+            break;
+        }
+        usleep(100000); /* Sleep for 100ms */
+    }
+    
+    /* Cleanup */
+    disable_lame();
+
     fprintf(stdout, "LAME counted: %lu\n", get_lame_counter() - cntr_val_start);
-    fprintf(stdout, "LAME emulation disabled\n");
-}
-
-int disable_lame(int fd)
-{
-    if (fd >= 0) {
-        close(fd);
-        fprintf(stdout, "LAME emulation disabled\n");
-    }
 
     return 0;
 }
@@ -276,7 +347,7 @@ int main(int argc, char **argv)
         return 0;
     }
     else if ((pid || cpu_start >= 0) && period) {
-        enable_lame(pid, cpu_start, cpu_end, period);
+        return enable_lame(pid, cpu_start, cpu_end, period);
     }
     else {
         fprintf(stderr, "Error: Invalid options\n");
