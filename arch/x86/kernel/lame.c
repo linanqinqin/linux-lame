@@ -165,7 +165,8 @@ static int __lame_register_int(struct file *file, unsigned long arg)
 
 /**
  * __lame_register_pmu - Register or unregister a LAME handler for the current task
- * This function populates the lame_cfg in the current task's task_struct
+ * This function populates the lame_cfg in the current task's task_struct.
+ * This function does not enable LAME emulation (set is_active=1) by default; a separate LAME_CONFIG_PMU ioctl command is needed.
  * @file: The ioctl file pointer
  * @arg: The argument pointer to the lame_arg structure
  *
@@ -185,7 +186,6 @@ static int __lame_register_pmu(struct file *file, unsigned long arg)
     if (user_arg.present) {
         
         /* Populate lame_cfg in current task's task_struct */
-        current->lame_cfg.is_active = 1;
         current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
         current->lame_cfg.period_left = 1000; /* default period; will be updated by ioctl command LAME_CONFIG_PMU */
 
@@ -289,7 +289,9 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
     rcu_read_unlock();
 
     if (task) {
-        
+
+        task->lame_cfg.is_active = 1;
+
         task->lame_cfg.sample_periods[0] = sample_period1;
         task->lame_cfg.sample_periods[1] = sample_period2;
         task->lame_cfg.num_occurrences[0] = num_occurrences1;
