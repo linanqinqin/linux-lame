@@ -187,16 +187,14 @@ static int __lame_register_pmu(struct file *file, unsigned long arg)
         
         /* Populate lame_cfg in current task's task_struct */
         current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
-        current->lame_cfg.period_left = 1000; /* default period; will be updated by ioctl command LAME_CONFIG_PMU */
 
-        pr_info("[__lame_register_pmu] LAME registered for task %d: handler=0x%lx, period=%llu\n",
+        pr_info("[__lame_register_pmu] LAME registered for task %d: handler=0x%lx\n",
                 current->pid, current->lame_cfg.handler_addr, current->lame_cfg.period_left);
     } else {
         
         /* Clear lame_cfg in current task's task_struct */
         current->lame_cfg.is_active = 0;
         current->lame_cfg.handler_addr = 0;
-        current->lame_cfg.period_left = 0;
 
         pr_info("[__lame_register_pmu] LAME unregistered for task %d\n", current->pid);
     }
