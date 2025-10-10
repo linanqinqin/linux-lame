@@ -3153,6 +3153,15 @@ done:
 /* linanqinqin */
 int intel_lame_handle_irq(struct pt_regs *regs);
 
+static int lame_intel_pmu_save_and_restart(struct perf_event *event) 
+{
+	// static_call(x86_pmu_update)(event);
+	x86_perf_event_update(event);
+
+	// return static_call(x86_pmu_set_period)(event);
+	return x86_perf_event_set_period(event);
+}
+
 static inline int lame_handle_pmi_common(struct pt_regs *regs, u64 status)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
@@ -3170,9 +3179,8 @@ static inline int lame_handle_pmi_common(struct pt_regs *regs, u64 status)
 		if (!test_bit(0, cpuc->active_mask))
 			return 1;
 
-		if (!intel_pmu_save_and_restart(event))
-			return 1;
-
+		// lame_intel_pmu_save_and_restart(event);
+		x86_perf_event_set_period(event);
 	}
 
 	return 1;
