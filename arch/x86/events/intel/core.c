@@ -3161,7 +3161,8 @@ static inline void lame_x86_perf_event_set_period(void)
 	int occurrences = this_cpu_read(lame_occurrences);
 
 	s64 period = current->lame_cfg.sample_periods[i];
-	pr_emerg("[lame_x86_perf_event_set_period]: on cpu %d [period=%lld, idx=%d, occurrences=%d]\n", smp_processor_id(), i, occurrences, period);
+	pr_emerg("[lame_x86_perf_event_set_period]: on cpu %d [period=%lld, idx=%d, occurrences=%d]\n", 
+			smp_processor_id(), period, i, occurrences);
 
 	occurrences++;
 
@@ -7294,7 +7295,7 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 	wrmsrl(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
 
 	/* assmuing PMC0 is the LAME counter */
-	s64 left = READ_ONCE(current->lame_cfg.period_left);
+	s64 left = 1000;
 	wrmsrl(MSR_IA32_PMC0, (u64)(-left) & x86_pmu.cntval_mask);
 
 	/* upcall the userspace handler only if the user program has registered a handler.
