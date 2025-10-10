@@ -189,7 +189,7 @@ static int __lame_register_pmu(struct file *file, unsigned long arg)
         current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
 
         pr_info("[__lame_register_pmu] LAME registered for task %d: handler=0x%lx\n",
-                current->pid, current->lame_cfg.handler_addr, current->lame_cfg.period_left);
+                current->pid, current->lame_cfg.handler_addr);
     } else {
         
         /* Clear lame_cfg in current task's task_struct */
