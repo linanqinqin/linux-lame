@@ -4,20 +4,17 @@
 
 #include <linux/types.h>
 
-#define LAME_PERIOD_LEFT_COUNT 32 	/* must be a power of 2 */
+#define LAME_PERIODS_COUNT 2 	
 
 struct lame_config {
 	int is_active;
 	unsigned long handler_addr;
 	
-	/* percentage of LLC misses that will be emulated as LAME; range [1, 100], read as percentage/100 */
-	u64 percentage;
-	/* a fixed period for resetting the counter */
-	s64 period_left; 
+	/* a list of fixed periods for resetting the counter */
+	s64 sample_periods[LAME_PERIODS_COUNT]; 
+	/* number of occurrences for each sample period */
+	u64 num_occurrences[LAME_PERIODS_COUNT];
 	
-	/* the pre-calculated left periods for resetting the counter that approximates the percentage */
-	// s64 period_left[LAME_PERIOD_LEFT_COUNT];
-
 	/* deprecated */
 	// u64 pebs_enable; /* PEBS enable bits; populated in perf_event_open() */
 };

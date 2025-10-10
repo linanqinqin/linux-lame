@@ -37,14 +37,16 @@ struct lame_arg {
 
 /* arguments for configuring LAME emulation via PMU*/
 struct lame_pmu_arg {
-    
     /* the pid of the target task; this is needed becuase LAME emulation 
      * is not (and should not be) configured directly by the user program */
     pid_t pid; 
     
-    /* percentage takes precedence over sample_period */
-    __u64 percentage;       /* percentage of LLC misses that will be emulated as LAME; range [1, 100], read as percentage/100 */
-    __u64 sample_period;    /* a fixed period for resetting the counter */
+    /* the periods string for specifying a tuple of sample periods and their number of occurrences 
+     * the 64-bit string is divided into four 16-bit fields
+     * the higher two fields are the two sample periods
+     * the lower two fields are the number of occurrences of the two sample periods, respectively
+     * if either the period or the occurrence is 0, it is ignored */
+    __u64 sample_periods;    
 };
 
 /* LAME counters */

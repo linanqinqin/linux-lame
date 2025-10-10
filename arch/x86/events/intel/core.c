@@ -3153,6 +3153,30 @@ done:
 /* linanqinqin */
 int intel_lame_handle_irq(struct pt_regs *regs);
 
+DEFINE_PER_CPU(int, lame_idx) = 0;
+DEFINE_PER_CPU(int, lame_occurrences) = 0;
+static inline void lame_x86_perf_event_set_period(void)
+{
+	int i = this_cpu_read(lame_idx);
+	int occurrences = this_cpu_read(lame_occurrences);
+
+	s64 period = current->lame_cfg.sample_periods[i];
+	pr_emerg("[lame_x86_perf_event_set_period]: on cpu %d [period=%lld, idx=%d, occurrences=%d]\n", smp_processor_id(), i, occurrences, period);
+
+	occurrences++;
+
+	if (occurrences >= current->lame_cfg.num_occurrences[i]) {
+		occurrences = 0;
+		if (++i >= LAME_PERIODS_COUNT)
+			i = 0;
+	}
+	this_cpu_write(lame_idx, i);
+	this_cpu_write(lame_occurrences, occurrences);
+
+	/* assuming PMC0 is the LAME counter */
+	wrmsrl(MSR_IA32_PMC0, (u64)(-period) & x86_pmu.cntval_mask);
+}
+
 static int lame_intel_pmu_save_and_restart(struct perf_event *event) 
 {
 	// static_call(x86_pmu_update)(event);
@@ -3174,13 +3198,14 @@ static inline int lame_handle_pmi_common(struct pt_regs *regs, u64 status)
 
 	/* check only PMC0, given LAME is always enabled on PMC0 */
 	if (status & (1ULL << 0)) {
-		struct perf_event *event = cpuc->events[0];
+		// struct perf_event *event = cpuc->events[0];
 
 		if (!test_bit(0, cpuc->active_mask))
 			return 1;
 
 		// lame_intel_pmu_save_and_restart(event);
-		x86_perf_event_set_period(event);
+		// x86_perf_event_set_period(event);
+		lame_x86_perf_event_set_period();
 	}
 
 	return 1;
