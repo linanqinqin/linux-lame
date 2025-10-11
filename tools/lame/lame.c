@@ -57,12 +57,11 @@ int set_idt2_lame(void)
     return 0;
 }
 
-int config_lame(pid_t pid, uint64_t percentage, uint64_t sample_period)
+int config_lame(pid_t pid, uint64_t sample_periods)
 {
     struct lame_pmu_arg lame_pmu_arg;
     lame_pmu_arg.pid = pid;
-    lame_pmu_arg.percentage = percentage;
-    lame_pmu_arg.sample_period = sample_period;
+    lame_pmu_arg.sample_periods = sample_periods;
 
     int lame_fd = open(LAME_DEV_PATH, O_RDWR);
     if (lame_fd < 0) {
@@ -140,10 +139,10 @@ static int is_pid_running(pid_t pid)
     }
 }
 
-int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
+int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
 {
 
-    if ((pid < 0 && cpu_start < 0) || sample_period <= 0) { 
+    if ((pid < 0 && cpu_start < 0) || sample_periods <= 0) { 
         fprintf(stderr, "Error: Invalid options\n");
         return -1;
     }
@@ -167,7 +166,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_period)
     
     /* configure LAME emulation */
     if (pid > 0) {
-        if (config_lame(pid, 0, sample_period)) {
+        if (config_lame(pid, sample_periods)) {
             fprintf(stderr, "config_lame failed\n");
             return -1;
         }
@@ -246,17 +245,64 @@ int print_lame_counter(void)
     return 0;
 }
 
+
+#define ACCURACY 100
+uint64_t percentage_to_periods(uint64_t x_percent) {
+
+    int n = ACCURACY;
+    // target fraction = x_percent / 100
+    int r = 100 / x_percent;   // floor approx
+    int a = r;
+    int b = r + 1;
+    if (a < 1) a = 1;
+
+    // Compute ideal k (using integer math, careful with scaling)
+    int num = (int)n * x_percent * a * b;  // numerator before /100
+    int rhs = num / 100 - (int)n * a;
+    int den = b - a;
+
+    int k_est = rhs / den;  // floor division
+    if (k_est < 0) k_est = 0;
+    if (k_est > n) k_est = n;
+
+    // Round to nearest integer by checking k_est and k_est+1
+    int best_k = k_est;
+    int best_diff = 1e9;  
+
+    for (int cand = k_est; cand <= k_est + 1 && cand <= n; cand++) {
+        int sum_num = cand * b + (n - cand) * a; // numerator
+        int sum_den = a * b;                     // denominator
+
+        // compare |sum/den/n - x/100|
+        // cross-multiply diff = |sum_num*100 - n*x_percent*sum_den|
+        int diff = abs(sum_num * 100 - (int)n * x_percent * sum_den);
+
+        if (diff < best_diff) {
+            best_diff = diff;
+            best_k = cand;
+        }
+    }
+
+    uint64_t periods = (uint64_t)a << 48; 
+    periods |= (uint64_t)b << 32;
+    periods |= (uint64_t)best_k << 16;
+    periods |= (uint64_t)(n - best_k);
+
+    return periods;
+}
+
 static void usage(const char *progname)
 {
-    fprintf(stderr, "Usage: %s -i <pid> -p <sample_period>\n", progname);
+    fprintf(stderr, "Usage: %s -i <pid> -e <sample_period>\n", progname);
     fprintf(stderr, "  -i <pid>         Target process ID\n");
     fprintf(stderr, "  -u <cpu>         Target CPU ID or a range (e.g. 0-7)\n");
-    fprintf(stderr, "  -p <period>      Sample period (every Nth LLC miss)\n");
+    fprintf(stderr, "  -p <percentage>  Sample percentage (N% of LLC misses)\n");
+    fprintf(stderr, "  -e <period>      Sample period (every Nth LLC miss)\n");
     fprintf(stderr, "  -n               Set IDT[2] to stock NMI handler\n");
     fprintf(stderr, "  -l               Set IDT[2] to LAME kernel trampoline\n");
     fprintf(stderr, "  -c               Print LAME counter value\n");
     fprintf(stderr, "  -h               Show this help message\n");
-    fprintf(stderr, "\nExample: %s -i 1234 -u 0-7 -p 10\n", progname);
+    fprintf(stderr, "\nExample: %s -i 1234 -u 0-7 -e 10\n", progname);
     fprintf(stderr, "Example: %s -n\n", progname);
     fprintf(stderr, "Example: %s -l\n", progname);
     fprintf(stderr, "Example: %s -c\n", progname);
@@ -265,6 +311,7 @@ static void usage(const char *progname)
 int main(int argc, char **argv)
 {
     pid_t pid = -1;
+    uint64_t percentage = 0;
     uint64_t period = 0;
     int cpu_start = -1;         /* range start if specified */
     int cpu_end = -1;           /* range end if specified */
@@ -273,7 +320,7 @@ int main(int argc, char **argv)
     int do_print_lame_counter = 0;
     int opt;
     
-    while ((opt = getopt(argc, argv, "i:u:p:nlch")) != -1) {
+    while ((opt = getopt(argc, argv, "i:u:p:e:nlch")) != -1) {
         switch (opt) {
         case 'i':
             pid = atoi(optarg);
@@ -312,6 +359,13 @@ int main(int argc, char **argv)
             break;
         }
         case 'p':
+            percentage = strtoull(optarg, NULL, 0);
+            if (percentage <= 0 || percentage > 50) {
+                fprintf(stderr, "Error: Invalid sample percentage '%s'; must be between 1 and 50\n", optarg);
+                return 1;
+            }
+            break;
+        case 'e':
             period = strtoull(optarg, NULL, 0);
             if (period == 0) {
                 fprintf(stderr, "Error: Invalid sample period '%s'\n", optarg);
@@ -337,13 +391,51 @@ int main(int argc, char **argv)
         }
     }
     
-    if ((do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter > 1)
-        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 0 && pid == 0 && period == 0)
-        || (do_set_idt2_nmi+do_set_idt2_lame+do_print_lame_counter == 1 && (pid != -1 || cpu_start != -1 || period != 0))) {
-        fprintf(stderr, "Error: Invalid options\n");
+    /* option validation */
+    int enable_lame_options = 0;
+    int exclusive_options = do_set_idt2_nmi + do_set_idt2_lame + do_print_lame_counter;
+    
+    /* Check if enable_lame options are present */
+    if (pid != -1 || cpu_start != -1 || period != 0 || percentage != 0) {
+        enable_lame_options = 1;
+    }
+    
+    /* Validation rules:
+     * 1. Only one group can be present: either enable_lame options OR exclusive options
+     * 2. For enable_lame: at least one of -i or -u must be present
+     * 3. For enable_lame: exactly one of -p or -e must be present
+     */
+    
+    /* Rule 1: Only one group can be present */
+    if (enable_lame_options && exclusive_options) {
+        fprintf(stderr, "Error: Cannot mix enable_lame options (-i, -u, -p, -e) with exclusive options (-n, -l, -c)\n");
         usage(argv[0]);
         return -1;
     }
+    
+    /* Rule 2: For enable_lame, at least one of -i or -u must be present */
+    if (enable_lame_options) {
+        if (pid == -1 && cpu_start == -1) {
+            fprintf(stderr, "Error: For enable_lame, at least one of -i (PID) or -u (CPU) must be specified\n");
+            usage(argv[0]);
+            return -1;
+        }
+        
+        /* Rule 3: Exactly one of -p or -e must be present */
+        if ((period == 0 && percentage == 0) || (period != 0 && percentage != 0)) {
+            fprintf(stderr, "Error: For enable_lame, exactly one of -p (percentage) or -e (period) must be specified\n");
+            usage(argv[0]);
+            return -1;
+        }
+    }
+    
+    /* If no options are specified, show usage */
+    if (!enable_lame_options && !exclusive_options) {
+        fprintf(stderr, "Error: No valid options specified\n");
+        usage(argv[0]);
+        return -1;
+    }
+    /* end */
 
     if (do_set_idt2_nmi) {
         return set_idt2_nmi();
@@ -354,8 +446,14 @@ int main(int argc, char **argv)
     else if (do_print_lame_counter) {
         return print_lame_counter();
     }
-    else if ((pid || cpu_start >= 0) && period) {
-        return enable_lame(pid, cpu_start, cpu_end, period);
+    else if (enable_lame_options) {
+        uint64_t sample_periods;
+        if (percentage != 0) {
+            sample_periods = percentage_to_periods(percentage);
+        } else {
+            sample_periods = period << 48 | period << 32 | 100 << 16 | 100;
+        }
+        return enable_lame(pid, cpu_start, cpu_end, sample_periods);
     }
     else {
         fprintf(stderr, "Error: Invalid options\n");
