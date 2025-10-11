@@ -250,6 +250,11 @@ int print_lame_counter(void)
 uint64_t percentage_to_periods(uint64_t x_percent) {
 
     int n = ACCURACY;
+
+    if (n % x_percent == 0) {
+        return (uint64_t)(n/x_percent) << 48 | (uint64_t)(n/x_percent) << 32 | (uint64_t)ACCURACY << 16 | (uint64_t)ACCURACY;
+    }
+
     // target fraction = x_percent / 100
     int r = 100 / x_percent;   // floor approx
     int a = r;
