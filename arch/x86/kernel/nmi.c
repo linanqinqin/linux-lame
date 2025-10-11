@@ -494,6 +494,40 @@ extern void lame_perf_event_nmi_handler(struct pt_regs *regs);
 /* end */
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {
+/* linanqinqin */
+/* If LAME is active and from user mode, bypass generic NMI dispatch
+ * and invoke the LAME PMU handler fast path. */
+if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active))
+{
+	irqentry_state_t irq_state;
+
+	if (IS_ENABLED(CONFIG_SMP) && arch_cpu_is_offline(smp_processor_id())) {
+		if (microcode_nmi_handler_enabled())
+			microcode_offline_nmi_handler();
+		return;
+	}
+
+	if (this_cpu_read(nmi_state) != NMI_NOT_RUNNING) {
+		this_cpu_write(nmi_state, NMI_LATCHED);
+		return;
+	}
+	this_cpu_write(nmi_state, NMI_EXECUTING);
+	this_cpu_write(nmi_cr2, read_cr2());
+
+lame_nmi_restart:
+	irq_state = irqentry_nmi_enter(regs);
+	lame_perf_event_nmi_handler(regs);
+	irqentry_nmi_exit(regs, irq_state);
+
+	if (unlikely(this_cpu_read(nmi_cr2) != read_cr2()))
+		write_cr2(this_cpu_read(nmi_cr2));
+	if (this_cpu_dec_return(nmi_state))
+		goto lame_nmi_restart;
+}
+else 
+/* original NMI path*/
+{
+/* end*/
 	irqentry_state_t irq_state;
 	struct nmi_stats *nsp = this_cpu_ptr(&nmi_stats);
 
@@ -544,14 +578,7 @@ nmi_restart:
 			WRITE_ONCE(nsp->idt_nmi_seq, nsp->idt_nmi_seq + 1);
 			WARN_ON_ONCE(!(nsp->idt_nmi_seq & 0x1));
 		}
-		/* linanqinqin */
-		/* In LAME mode for user-space, bypass generic NMI dispatch
-		 * and invoke the PMU handler fast path wrapper. */
-		if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active))
-			lame_perf_event_nmi_handler(regs);
-		else
 		default_do_nmi(regs);
-		/* end */
 		if (IS_ENABLED(CONFIG_NMI_CHECK_CPU)) {
 			WRITE_ONCE(nsp->idt_nmi_seq, nsp->idt_nmi_seq + 1);
 			WARN_ON_ONCE(nsp->idt_nmi_seq & 0x1);
@@ -573,6 +600,9 @@ nmi_restart:
 	}
 	if (this_cpu_dec_return(nmi_state))
 		goto nmi_restart;
+/* linanqinqin */
+}
+/* end */
 }
 
 #if IS_ENABLED(CONFIG_KVM_INTEL)
