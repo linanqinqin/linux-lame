@@ -205,13 +205,13 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     }
 
     if (pid > 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d with sample period %lu\n", pid, cpu_start, cpu_end, sample_period);
+        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d\n", pid, cpu_start, cpu_end);
     }
     else if (pid > 0 && cpu_start < 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d with sample period %lu\n", pid, sample_period);
+        fprintf(stdout, "LAME emulation enabled on pid %d\n", pid);
     }
     else if (pid < 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on cores %d-%d with sample period %lu\n", cpu_start, cpu_end, sample_period);
+        fprintf(stdout, "LAME emulation enabled on cores %d-%d\n", cpu_start, cpu_end);
     }
     
     /* Main monitoring loop */
