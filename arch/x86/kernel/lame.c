@@ -273,8 +273,12 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
     u64 num_occurrences1 = (user_arg.sample_periods >> 16) & 0xFFFF;
     u64 num_occurrences2 = user_arg.sample_periods & 0xFFFF;
 
-    if (sample_period1*num_occurrences1 + sample_period2*num_occurrences2 == 0) {
+    if (sample_period1*num_occurrences1*sample_period2*num_occurrences2 == 0) {
         pr_err("[__lame_config_pmu] Invalid sample_periods\n");
+        return -EINVAL;
+    }
+    if (sample_period1 < 2 || sample_period2 < 2) {
+        pr_err("[__lame_config_pmu] Invalid period must be at least 2\n");
         return -EINVAL;
     }
 
