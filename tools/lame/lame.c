@@ -185,7 +185,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     // MEM_LOAD_RETIRED.L3_MISS: event=0x2E, umask=0x41
     pea.config = (0x41ULL << 8) | 0x2E;
 
-    pea.sample_period = sample_period; // e.g. every Nth LLC miss
+    pea.sample_period = 2026ULL;       // this would be meaningless; config_lame sets the periods 
     pea.precise_ip = 0;                // request regular PMU counting
     pea.exclude_kernel = 1;            // only count user-space
     pea.exclude_hv = 1;                // skip hypervisor
@@ -275,7 +275,7 @@ uint64_t percentage_to_periods(uint64_t x_percent) {
 
         // compare |sum/den/n - x/100|
         // cross-multiply diff = |sum_num*100 - n*x_percent*sum_den|
-        int diff = abs(sum_num * 100 - (int)n * x_percent * sum_den);
+        int diff = abs(sum_num * 100 - (int)n * (int)x_percent * sum_den);
 
         if (diff < best_diff) {
             best_diff = diff;
@@ -296,7 +296,7 @@ static void usage(const char *progname)
     fprintf(stderr, "Usage: %s -i <pid> -e <sample_period>\n", progname);
     fprintf(stderr, "  -i <pid>         Target process ID\n");
     fprintf(stderr, "  -u <cpu>         Target CPU ID or a range (e.g. 0-7)\n");
-    fprintf(stderr, "  -p <percentage>  Sample percentage (N% of LLC misses)\n");
+    fprintf(stderr, "  -p <percentage>  Sample percentage (N%% of LLC misses)\n");
     fprintf(stderr, "  -e <period>      Sample period (every Nth LLC miss)\n");
     fprintf(stderr, "  -n               Set IDT[2] to stock NMI handler\n");
     fprintf(stderr, "  -l               Set IDT[2] to LAME kernel trampoline\n");
