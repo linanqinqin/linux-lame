@@ -3161,9 +3161,6 @@ static inline void lame_x86_perf_event_set_period(void)
 	int occurrences = this_cpu_read(lame_occurrences);
 
 	s64 period = current->lame_cfg.sample_periods[i];
-	pr_emerg("[lame_x86_perf_event_set_period]: on cpu %d [period=%lld, idx=%d, occurrences=%d]\n", 
-			smp_processor_id(), period, i, occurrences);
-
 	occurrences++;
 
 	if (occurrences >= current->lame_cfg.num_occurrences[i]) {
