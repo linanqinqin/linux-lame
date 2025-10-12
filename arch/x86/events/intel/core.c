@@ -3189,17 +3189,21 @@ static __always_inline void lame_x86_perf_event_set_period(void)
  * this should work safely for per-task and per-core perf_event_open().
  * skip user mode and LAME is_active check, since it's already done in exc_nmi.
  * 
- * 
+ * a LAME frame contains the ip and flags for a later bret to resume context before LAME branching. 
+ * this is very similar to a same-ring interrupt frame, but without the CS, because LAME always assumes same-ring, same-CS branching. 
+ *
  */
 static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
 	lame_counter_handler_upcall++;
 
-	regs->sp -= 8;
-	/* SMAP: briefly allow/disallow supervisor write to user memory */
+	/* SMAP: briefly allow/disallow supervisor write to user memory 
+	 * raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
 	asm volatile("stac" ::: "memory");
-	/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
+	regs->sp -= 8;
 	*(u64 __user *)regs->sp = regs->ip;
+	regs->sp -= 8;
+	*(u64 __user *)regs->sp = regs->flags;
 	asm volatile("clac" ::: "memory");
 
 	/* patch the IST frame to jump to the user-space handler */
