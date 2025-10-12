@@ -3227,7 +3227,8 @@ static inline void intel_lame_upcall(struct pt_regs *regs) {
 	}
 }
 
-void intel_lame_handle_irq(struct pt_regs *regs)
+#define LAME_PMC_IDX 0
+void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
 	u64 status;
@@ -3240,14 +3241,16 @@ void intel_lame_handle_irq(struct pt_regs *regs)
 	pmu_enabled = cpuc->enabled;
 	
 	cpuc->enabled = 0;
-	__intel_pmu_disable_all(true);
+
+	wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL, 0); 	/* minimal version of __intel_pmu_disable_all(true); */
+
 	status = intel_pmu_get_status();
 	if (!status)
 		goto done;
 
-	intel_pmu_ack_status(status);
+	wrmsrl(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status); 	/* intel_pmu_ack_status(status); */
 
-	if ((status & (1ULL << 0)) && test_bit(0, cpuc->active_mask)) 
+	if ((status & (1ULL << LAME_PMC_IDX)) && test_bit(LAME_PMC_IDX, cpuc->active_mask)) 
 		lame_x86_perf_event_set_period();
 
 	/* set up upcall to the LAME userspace handler */
@@ -3256,8 +3259,13 @@ void intel_lame_handle_irq(struct pt_regs *regs)
 done:
 	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
 	cpuc->enabled = pmu_enabled;
-	if (pmu_enabled)
-		__intel_pmu_enable_all(0, true);
+	if (pmu_enabled) {
+		/* minimal version of __intel_pmu_enable_all(0, true); */
+		u64 intel_ctrl = hybrid(cpuc->pmu, intel_ctrl);
+
+		wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL,
+			intel_ctrl & ~cpuc->intel_ctrl_guest_mask);
+	}	
 
 	/* On CloudLab c6620, late ack is used */
 	apic_write(APIC_LVTPC, APIC_DM_NMI);
