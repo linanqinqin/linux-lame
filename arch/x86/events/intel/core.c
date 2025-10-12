@@ -3152,9 +3152,15 @@ done:
 
 /* linanqinqin */
 void intel_lame_handle_irq(struct pt_regs *regs);
-
+extern u64 lame_counter_handler_upcall;
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
+
+/* 
+ * lame_x86_perf_event_set_period - set the period of the LAME counter
+ * 
+ * sets the next period for the LAME counter according to a distribution of sample periods and their number of occurrences.
+ */
 static __always_inline void lame_x86_perf_event_set_period(void)
 {
 	int i = this_cpu_read(lame_idx);
@@ -3175,43 +3181,17 @@ static __always_inline void lame_x86_perf_event_set_period(void)
 	wrmsrl(MSR_IA32_PMC0, (u64)(-period) & x86_pmu.cntval_mask);
 }
 
-static int lame_intel_pmu_save_and_restart(struct perf_event *event) 
-{
-	// static_call(x86_pmu_update)(event);
-	x86_perf_event_update(event);
-
-	// return static_call(x86_pmu_set_period)(event);
-	return x86_perf_event_set_period(event);
-}
-
-static inline int lame_handle_pmi_common(u64 status)
-{
-	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
-
-	if (!status)
-		return 0;
-
-	/* check only PMC0, given LAME is always enabled on PMC0 */
-	if (status & (1ULL << 0)) {
-		// struct perf_event *event = cpuc->events[0];
-
-		if (!test_bit(0, cpuc->active_mask))
-			return 1;
-
-		// lame_intel_pmu_save_and_restart(event);
-		// x86_perf_event_set_period(event);
-		lame_x86_perf_event_set_period();
-	}
-
-	return 1;
-}
-
-extern u64 lame_counter_handler_upcall;
-
+/*
+ * intel_lame_upcall - LAME upcall to the userspace handler
+ * @regs: pointer to the interrupt frame
+ * 
+ * set up the upcall to the userspace handler only if the user program has registered a handler.
+ * this should work safely for per-task and per-core perf_event_open().
+ * skip user mode and LAME is_active check, since it's already done in exc_nmi.
+ * 
+ * 
+ */
 static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
-	/* set up the upcall to the userspace handler only if the user program has registered a handler.
-	 * this should work safely for per-task and per-core perf_event_open() */
-	/* skip user mode and LAME is_active check, since it's already done in exc_nmi */
 
 	lame_counter_handler_upcall++;
 
@@ -3249,12 +3229,10 @@ void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 	 * It needs to be restored when leaving the handler.
 	 */
 	pmu_enabled = cpuc->enabled;
-	
 	cpuc->enabled = 0;
-
 	wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL, 0); 	/* minimal version of __intel_pmu_disable_all(true); */
 
-	status = intel_pmu_get_status();
+	rdmsrl(MSR_CORE_PERF_GLOBAL_STATUS, status); 	/* status = intel_pmu_get_status(); */
 	if (!status)
 		goto done;
 
@@ -3272,7 +3250,6 @@ done:
 	if (pmu_enabled) {
 		/* minimal version of __intel_pmu_enable_all(0, true); */
 		u64 intel_ctrl = hybrid(cpuc->pmu, intel_ctrl);
-
 		wrmsrl(MSR_CORE_PERF_GLOBAL_CTRL,
 			intel_ctrl & ~cpuc->intel_ctrl_guest_mask);
 	}	
