@@ -3184,7 +3184,7 @@ static int lame_intel_pmu_save_and_restart(struct perf_event *event)
 	return x86_perf_event_set_period(event);
 }
 
-static inline int lame_handle_pmi_common(struct pt_regs *regs, u64 status)
+static inline int lame_handle_pmi_common(u64 status)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
 
@@ -3261,6 +3261,8 @@ int intel_lame_handle_irq(struct pt_regs *regs)
 	if (!status)
 		goto done;
 
+	pr_emerg("[intel_lame_handle_irq]: pmu_enabled=%d, mid_ack=%d, late_ack=%d, status=0x%llx\n", pmu_enabled, mid_ack, late_ack, status);
+
 	loops = 0;
 again:
 	intel_pmu_ack_status(status);
@@ -3276,7 +3278,7 @@ again:
 		goto done;
 	}
 
-	handled += lame_handle_pmi_common(regs, status);
+	handled += lame_handle_pmi_common(status);
 
 	/*
 	 * Repeat if there is more work to be done:
@@ -3284,6 +3286,8 @@ again:
 	status = intel_pmu_get_status();
 	if (status)
 		goto again;
+
+	pr_emerg("[intel_lame_handle_irq]: done, loops=%d, status=0x%llx\n", loops, status);
 
 done:
 	if (mid_ack)
