@@ -3155,7 +3155,7 @@ void intel_lame_handle_irq(struct pt_regs *regs);
 
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
-static inline void lame_x86_perf_event_set_period(void)
+static __always_inline void lame_x86_perf_event_set_period(void)
 {
 	int i = this_cpu_read(lame_idx);
 	int occurrences = this_cpu_read(lame_occurrences);
@@ -3208,26 +3208,36 @@ static inline int lame_handle_pmi_common(u64 status)
 
 extern u64 lame_counter_handler_upcall;
 
-static inline void intel_lame_upcall(struct pt_regs *regs) {
+static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 	/* set up the upcall to the userspace handler only if the user program has registered a handler.
 	 * this should work safely for per-task and per-core perf_event_open() */
-	if (user_mode(regs) && READ_ONCE(current->lame_cfg.is_active)) {
+	/* skip user mode and LAME is_active check, since it's already done in exc_nmi */
 
-		lame_counter_handler_upcall++;
+	lame_counter_handler_upcall++;
 
-		regs->sp -= 8;
-		/* SMAP: briefly allow/disallow supervisor write to user memory */
-		asm volatile("stac" ::: "memory");
-		/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
-		*(u64 __user *)regs->sp = regs->ip;
-		asm volatile("clac" ::: "memory");
+	regs->sp -= 8;
+	/* SMAP: briefly allow/disallow supervisor write to user memory */
+	asm volatile("stac" ::: "memory");
+	/* raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
+	*(u64 __user *)regs->sp = regs->ip;
+	asm volatile("clac" ::: "memory");
 
-		/* patch the IST frame to jump to the user-space handler */
-		regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
-	}
+	/* patch the IST frame to jump to the user-space handler */
+	regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
 }
 
 #define LAME_PMC_IDX 0
+
+/* 
+ * intel_lame_handle_irq - LAME PMU handler fast path
+ * @regs: pointer to the interrupt frame
+ * 
+ * This function has the following assumptions:
+ * 1. LAME emulation is always enabled on PMC0 (LAME_PMC_IDX), though this is currently not guaranteed by perf. 
+ * 2. LAME emulation must own the NMI line (i.e., LAME perf event is the only NMI source).
+ * 3. LAME emulation is configured with precise_ip=0, so no pebs handling. 
+ * 4. late APIC ack is used. CloudLab c6620 uses late ack, so as (supposedly) any CPU starting Haswell.
+ */
 void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
