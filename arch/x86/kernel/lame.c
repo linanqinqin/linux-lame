@@ -267,20 +267,6 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
         pr_err("[__lame_config_pmu] Failed to copy argument from user space\n");
         return -EFAULT;
     }
-    
-    s64 sample_period1 = (s64) ((user_arg.sample_periods >> 48) & 0xFFFF);
-    s64 sample_period2 = (s64) ((user_arg.sample_periods >> 32) & 0xFFFF);
-    u64 num_occurrences1 = (user_arg.sample_periods >> 16) & 0xFFFF;
-    u64 num_occurrences2 = user_arg.sample_periods & 0xFFFF;
-
-    if (sample_period1*num_occurrences1*sample_period2*num_occurrences2 == 0) {
-        pr_err("[__lame_config_pmu] Invalid sample_periods\n");
-        return -EINVAL;
-    }
-    if (sample_period1 < 2 || sample_period2 < 2) {
-        pr_err("[__lame_config_pmu] Invalid period must be at least 2\n");
-        return -EINVAL;
-    }
 
     struct task_struct *task;
     rcu_read_lock();
@@ -292,18 +278,38 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
 
     if (task) {
 
-        task->lame_cfg.is_active = 1;
+        if (user_arg.enable) {
+            s64 sample_period1 = (s64) ((user_arg.sample_periods >> 48) & 0xFFFF);
+            s64 sample_period2 = (s64) ((user_arg.sample_periods >> 32) & 0xFFFF);
+            u64 num_occurrences1 = (user_arg.sample_periods >> 16) & 0xFFFF;
+            u64 num_occurrences2 = user_arg.sample_periods & 0xFFFF;
 
-        task->lame_cfg.sample_periods[0] = sample_period1;
-        task->lame_cfg.sample_periods[1] = sample_period2;
-        task->lame_cfg.num_occurrences[0] = num_occurrences1;
-        task->lame_cfg.num_occurrences[1] = num_occurrences2;
+            if (sample_period1*num_occurrences1*sample_period2*num_occurrences2 == 0) {
+                pr_err("[__lame_config_pmu] Invalid sample_periods\n");
+                return -EINVAL;
+            }
+            if (sample_period1 < 2 || sample_period2 < 2) {
+                pr_err("[__lame_config_pmu] Invalid period must be at least 2\n");
+                return -EINVAL;
+            }
+            
+            task->lame_cfg.is_active = 1;
 
-        pr_info("[__lame_config_pmu] LAME configured for task %d: sample_periods={%lld, %lld}, num_occurrences={%llu, %llu}\n",
-            task->pid, 
-            task->lame_cfg.sample_periods[0], task->lame_cfg.sample_periods[1], 
-            task->lame_cfg.num_occurrences[0], task->lame_cfg.num_occurrences[1]);
-        
+            task->lame_cfg.sample_periods[0] = sample_period1;
+            task->lame_cfg.sample_periods[1] = sample_period2;
+            task->lame_cfg.num_occurrences[0] = num_occurrences1;
+            task->lame_cfg.num_occurrences[1] = num_occurrences2;
+
+            pr_info("[__lame_config_pmu] LAME emulation configured for task %d: sample_periods={%lld, %lld}, num_occurrences={%llu, %llu}\n",
+                task->pid, 
+                task->lame_cfg.sample_periods[0], task->lame_cfg.sample_periods[1], 
+                task->lame_cfg.num_occurrences[0], task->lame_cfg.num_occurrences[1]);
+        } else {
+            task->lame_cfg.is_active = 0;
+
+            pr_info("[__lame_config_pmu] LAME emulation unconfigured for task %d\n", task->pid);
+        }
+
         put_task_struct(task);
     }else {
         pr_err("[__lame_config_pmu] Task %d not found or already exited\n", user_arg.pid);

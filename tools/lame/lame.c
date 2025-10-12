@@ -57,9 +57,10 @@ int set_idt2_lame(void)
     return 0;
 }
 
-int config_lame(pid_t pid, uint64_t sample_periods)
+int config_lame(bool enable, pid_t pid, uint64_t sample_periods)
 {
     struct lame_pmu_arg lame_pmu_arg;
+    lame_pmu_arg.enable = enable;
     lame_pmu_arg.pid = pid;
     lame_pmu_arg.sample_periods = sample_periods;
 
@@ -166,7 +167,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     
     /* configure LAME emulation */
     if (pid > 0) {
-        if (config_lame(pid, sample_periods)) {
+        if (config_lame(true, pid, sample_periods)) {
             fprintf(stderr, "config_lame failed\n");
             return -1;
         }
@@ -225,6 +226,9 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     
     /* Cleanup */
     disable_lame();
+    if (pid > 0) {
+        config_lame(false, pid, 0);
+    }
 
     struct lame_counter cntr_vals_end;
     get_lame_counter(&cntr_vals_end);

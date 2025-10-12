@@ -37,6 +37,10 @@ struct lame_arg {
 
 /* arguments for configuring LAME emulation via PMU*/
 struct lame_pmu_arg {
+    
+    /* if enable is 1, enable LAME emulation; if 0, disable it */
+    __u8 enable;           
+    
     /* the pid of the target task; this is needed becuase LAME emulation 
      * is not (and should not be) configured directly by the user program */
     pid_t pid; 
