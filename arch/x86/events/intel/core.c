@@ -3151,7 +3151,7 @@ done:
 }
 
 /* linanqinqin */
-int intel_lame_handle_irq(struct pt_regs *regs);
+void intel_lame_handle_irq(struct pt_regs *regs);
 
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
@@ -3188,9 +3188,6 @@ static inline int lame_handle_pmi_common(u64 status)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
 
-	status &= ~(GLOBAL_STATUS_COND_CHG |
-		    GLOBAL_STATUS_ASIF |
-		    GLOBAL_STATUS_LBRS_FROZEN);
 	if (!status)
 		return 0;
 
@@ -3230,14 +3227,10 @@ static inline void intel_lame_upcall(struct pt_regs *regs) {
 	}
 }
 
-int intel_lame_handle_irq(struct pt_regs *regs)
+void intel_lame_handle_irq(struct pt_regs *regs)
 {
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
-	bool late_ack = hybrid_bit(cpuc->pmu, late_ack);
-	bool mid_ack = hybrid_bit(cpuc->pmu, mid_ack);
-	int loops;
 	u64 status;
-	int handled;
 	int pmu_enabled;
 
 	/*
@@ -3245,53 +3238,17 @@ int intel_lame_handle_irq(struct pt_regs *regs)
 	 * It needs to be restored when leaving the handler.
 	 */
 	pmu_enabled = cpuc->enabled;
-	/*
-	 * In general, the early ACK is only applied for old platforms.
-	 * For the big core starts from Haswell, the late ACK should be
-	 * applied.
-	 * For the small core after Tremont, we have to do the ACK right
-	 * before re-enabling counters, which is in the middle of the
-	 * NMI handler.
-	 */
-	if (!late_ack && !mid_ack)
-		apic_write(APIC_LVTPC, APIC_DM_NMI);
+	
 	cpuc->enabled = 0;
 	__intel_pmu_disable_all(true);
 	status = intel_pmu_get_status();
 	if (!status)
 		goto done;
 
-	pr_emerg("[intel_lame_handle_irq]: pmu_enabled=%d, mid_ack=%d, late_ack=%d, status=0x%llx\n", pmu_enabled, mid_ack, late_ack, status);
-
-	loops = 0;
-again:
 	intel_pmu_ack_status(status);
-	if (++loops > 100) {
-		static bool warned;
 
-		if (!warned) {
-			WARN(1, "perfevents: irq loop stuck!\n");
-			perf_event_print_debug();
-			warned = true;
-		}
-		intel_pmu_reset();
-		goto done;
-	}
-
-	handled += lame_handle_pmi_common(status);
-
-	/*
-	 * Repeat if there is more work to be done:
-	 */
-	status = intel_pmu_get_status();
-	if (status)
-		goto again;
-
-	pr_emerg("[intel_lame_handle_irq]: done, loops=%d, status=0x%llx\n", loops, status);
-
-done:
-	if (mid_ack)
-		apic_write(APIC_LVTPC, APIC_DM_NMI);
+	if ((status & (1ULL << 0)) && test_bit(0, cpuc->active_mask)) 
+		lame_x86_perf_event_set_period();
 
 	/* set up upcall to the LAME userspace handler */
 	intel_lame_upcall(regs);
@@ -3301,15 +3258,8 @@ done:
 	if (pmu_enabled)
 		__intel_pmu_enable_all(0, true);
 
-	/*
-	 * Only unmask the NMI after the overflow counters
-	 * have been reset. This avoids spurious NMIs on
-	 * Haswell CPUs.
-	 */
-	if (late_ack)
-		apic_write(APIC_LVTPC, APIC_DM_NMI);
-
-	return handled;
+	/* On CloudLab c6620, late ack is used */
+	apic_write(APIC_LVTPC, APIC_DM_NMI);
 }
 /* end */
 
