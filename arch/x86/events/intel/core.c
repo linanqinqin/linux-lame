@@ -3252,7 +3252,8 @@ void intel_lame_handle_irq(struct pt_regs *regs)
 
 	/* set up upcall to the LAME userspace handler */
 	intel_lame_upcall(regs);
-	
+
+done:
 	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
 	cpuc->enabled = pmu_enabled;
 	if (pmu_enabled)
