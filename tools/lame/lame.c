@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <stdbool.h>
 
 static inline long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
                             int cpu, int group_fd, unsigned long flags)
@@ -183,8 +184,10 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     pea.type = PERF_TYPE_RAW;
     pea.size = sizeof(struct perf_event_attr);
 
-    // MEM_LOAD_RETIRED.L3_MISS: event=0x2E, umask=0x41
-    pea.config = (0x41ULL << 8) | 0x2E;
+    /* MEM_LOAD_RETIRED.L3_MISS: event=0xD1, umask=0x20 
+     * This counts retired load instructions that missed L3 cache
+     * (not all LLC misses including prefetches/speculative accesses) */
+    pea.config = (0x20ULL << 8) | 0xD1;
 
     pea.sample_period = 2026ULL;       // this would be meaningless; config_lame sets the periods 
     pea.precise_ip = 0;                // request regular PMU counting
@@ -216,8 +219,10 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     }
     
     /* Main monitoring loop */
+    int target_terminated = 0;
     while (!shutdown_requested) {
         if (pid > 0 && !is_pid_running(pid)) {
+            target_terminated = 1;
             fprintf(stdout, "Target PID %d has terminated\n", pid);
             break;
         }
@@ -226,7 +231,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     
     /* Cleanup */
     disable_lame();
-    if (pid > 0) {
+    if (pid > 0 && !target_terminated) {
         config_lame(false, pid, 0);
     }
 
