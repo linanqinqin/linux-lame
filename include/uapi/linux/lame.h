@@ -35,9 +35,10 @@ struct lame_arg {
     __u64 handler_addr;     /* the address of the userspace LAME handler */
 };
 
-#define LAME_CONFIG_OPTION_NONE 0x0
-#define LAME_CONFIG_OPTION_UPCALL 0x1
-#define LAME_CONFIG_OPTION_STALL 0x2
+#define LAME_CONFIG_OPTION_NONE     0x0
+#define LAME_CONFIG_OPTION_UPCALL   0x1
+#define LAME_CONFIG_OPTION_STALL    0x2
+#define LAME_CONFIG_OPTION_NOP      0x4
 
 /* arguments for configuring LAME emulation via PMU*/
 struct lame_pmu_arg {
