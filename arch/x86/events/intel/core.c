@@ -3273,7 +3273,7 @@ void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 	/* do stall emulation */
 	if (READ_ONCE(current_lame_cfg(do_stall)))
 		intel_lame_stall_emulation();
-	
+
 done:
 	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
 	cpuc->enabled = pmu_enabled;
@@ -7277,7 +7277,7 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 
 	/* upcall the userspace handler only if the user program has registered a handler.
 	 * this should work safely for per-task and per-core perf_event_open() */
-	if (lame_user_mode(frame) && READ_ONCE(current->lame_cfg.is_active)) {
+	if (lame_user_mode(frame) && READ_ONCE(current_lame_cfg(is_active))) {
 
 		frame->rsp -= 8;
 		/* SMAP: briefly allow/disallow supervisor write to user memory */
@@ -7287,7 +7287,7 @@ void intel_lame_handle(struct lame_iret_frame *frame)
 		asm volatile("clac" ::: "memory");
 
 		/* patch the IST frame to jump to the user-space handler */
-		frame->rip = READ_ONCE(current->lame_cfg.handler_addr);
+		frame->rip = READ_ONCE(current_lame_cfg(handler_addr));
 	}
 
 }
