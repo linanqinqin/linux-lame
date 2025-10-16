@@ -23,5 +23,9 @@ struct lame_config {
 	// u64 pebs_enable; /* PEBS enable bits; populated in perf_event_open() */
 };
 
+struct lame_context {
+	u64 last_deadline_tsc; 
+};
+
 #endif /* _LINUX_LAME_H */
 /* end */
