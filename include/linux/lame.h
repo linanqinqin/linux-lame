@@ -10,6 +10,10 @@ struct lame_config {
 	int is_active;
 	unsigned long handler_addr;
 	
+	bool do_upcall;
+	bool do_stall;
+	u64 stall_duration;
+
 	/* a list of fixed periods for resetting the counter */
 	s64 sample_periods[LAME_PERIODS_COUNT]; 
 	/* number of occurrences for each sample period */

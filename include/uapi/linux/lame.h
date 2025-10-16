@@ -35,11 +35,18 @@ struct lame_arg {
     __u64 handler_addr;     /* the address of the userspace LAME handler */
 };
 
+#define LAME_CONFIG_OPTION_NONE 0x0
+#define LAME_CONFIG_OPTION_UPCALL 0x1
+#define LAME_CONFIG_OPTION_STALL 0x2
+
 /* arguments for configuring LAME emulation via PMU*/
 struct lame_pmu_arg {
-    
-    /* if enable is 1, enable LAME emulation; if 0, disable it */
-    __u8 enable;           
+
+    /* the configuration options for LAME emulation 
+     * bit 0: enable upcall to the userspace handler 
+     * bit 1: enable stall emulation 
+     * upper 16 bits: TSC duration for stall emulation */
+    __u32 config;           
     
     /* the pid of the target task; this is needed becuase LAME emulation 
      * is not (and should not be) configured directly by the user program */
