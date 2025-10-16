@@ -284,6 +284,8 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
 
     if (task) {
 
+        struct lame_config *lame_cfg = &(task->signal.lame_cfg);
+        
         if (user_arg.config) {
             /* parse the set up the sample periods */
             s64 sample_period1 = (s64) ((user_arg.sample_periods >> 48) & 0xFFFF);
@@ -300,26 +302,27 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
                 return -EINVAL;
             }
             
-            /* enable LAME emulation */
-            task->lame_cfg.is_active = 1;
-
-            task->lame_cfg.sample_periods[0] = sample_period1;
-            task->lame_cfg.sample_periods[1] = sample_period2;
-            task->lame_cfg.num_occurrences[0] = num_occurrences1;
-            task->lame_cfg.num_occurrences[1] = num_occurrences2;
+            /* set up the sample periods and number of occurrences */
+            lame_cfg->sample_periods[0] = sample_period1;
+            lame_cfg->sample_periods[1] = sample_period2;
+            lame_cfg->num_occurrences[0] = num_occurrences1;
+            lame_cfg->num_occurrences[1] = num_occurrences2;
 
             /* parse and set up the config options for upcall and stall emulation */
-            task->lame_cfg.do_upcall = user_arg.config & LAME_CONFIG_OPTION_UPCALL;
-            task->lame_cfg.do_stall = user_arg.config & LAME_CONFIG_OPTION_STALL;
-            task->lame_cfg.stall_duration = (u64)(user_arg.config >> 16);
+            lame_cfg->do_upcall = user_arg.config & LAME_CONFIG_OPTION_UPCALL;
+            lame_cfg->do_stall = user_arg.config & LAME_CONFIG_OPTION_STALL;
+            lame_cfg->stall_duration = (u64)(user_arg.config >> 16);
+
+            /* enable LAME emulation after all config is set */
+            lame_cfg->is_active = 1;
 
             pr_info("[__lame_config_pmu] LAME emulation configured for task %d: sample_periods={%lld, %lld}, num_occurrences={%llu, %llu}, do_upcall=%d, do_stall=%d, stall_duration=%llu\n",
                 task->pid, 
-                task->lame_cfg.sample_periods[0], task->lame_cfg.sample_periods[1], 
-                task->lame_cfg.num_occurrences[0], task->lame_cfg.num_occurrences[1],
-                task->lame_cfg.do_upcall, task->lame_cfg.do_stall, task->lame_cfg.stall_duration);
+                lame_cfg->sample_periods[0], lame_cfg->sample_periods[1], 
+                lame_cfg->num_occurrences[0], lame_cfg->num_occurrences[1],
+                lame_cfg->do_upcall, lame_cfg->do_stall, lame_cfg->stall_duration);
         } else {
-            task->lame_cfg.is_active = 0;
+            lame_cfg->is_active = 0;
 
             pr_info("[__lame_config_pmu] LAME emulation unconfigured for task %d\n", task->pid);
         }

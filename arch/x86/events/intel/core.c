@@ -3163,6 +3163,8 @@ extern u64 lame_counter_stall_duration_total;
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
 
+#define current_lame_cfg(member) (current->signal.lame_cfg.member)
+
 /* 
  * lame_x86_perf_event_set_period - set the period of the LAME counter
  * 
@@ -3173,10 +3175,10 @@ static __always_inline void lame_x86_perf_event_set_period(void)
 	int i = this_cpu_read(lame_idx);
 	int occurrences = this_cpu_read(lame_occurrences);
 
-	s64 period = current->lame_cfg.sample_periods[i];
+	s64 period = current_lame_cfg(sample_periods[i]);
 	occurrences++;
 
-	if (occurrences >= current->lame_cfg.num_occurrences[i]) {
+	if (occurrences >= current_lame_cfg(num_occurrences[i])) {
 		occurrences = 0;
 		if (++i >= LAME_PERIODS_COUNT)
 			i = 0;
@@ -3214,7 +3216,7 @@ static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 	asm volatile("clac" ::: "memory");
 
 	/* patch the IST frame to jump to the user-space handler */
-	regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
+	regs->ip = READ_ONCE(current_lame_cfg(handler_addr));
 }
 
 static __always_inline void intel_lame_stall_emulation(void)
@@ -3223,7 +3225,7 @@ static __always_inline void intel_lame_stall_emulation(void)
 
 	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
 	u64 tsc_start = rdtsc();
-	u64 tsc_deadline = tsc_start + READ_ONCE(current->lame_cfg.stall_duration);
+	u64 tsc_deadline = tsc_start + READ_ONCE(current_lame_cfg(stall_duration));
 	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
 
 	lame_counter_stall_duration_total += rdtsc() - tsc_start;
@@ -3265,7 +3267,7 @@ void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 		lame_x86_perf_event_set_period();
 
 	/* set up upcall to the LAME userspace handler */
-	if (READ_ONCE(current->lame_cfg.do_upcall)) 
+	if (READ_ONCE(current_lame_cfg(do_upcall))) 
 		intel_lame_upcall(regs);
 
 done:
@@ -3281,7 +3283,7 @@ done:
 	/* On CloudLab c6620, late ack is used */
 	apic_write(APIC_LVTPC, APIC_DM_NMI);
 
-	if (READ_ONCE(current->lame_cfg.do_stall))
+	if (READ_ONCE(current_lame_cfg(do_stall)))
 		intel_lame_stall_emulation();
 }
 /* end */

@@ -246,6 +246,11 @@ struct signal_struct {
 						 * and may have inconsistent
 						 * permissions.
 						 */
+	/* linanqinqin */
+	/* signal_struct is shared by all threads in the same process (thread group) 
+	 * tagging lame_config here achieves the same effect */
+	struct lame_config lame_cfg;
+	/* end */
 } __randomize_layout;
 
 /*
