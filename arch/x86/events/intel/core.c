@@ -3270,6 +3270,10 @@ void __always_inline intel_lame_handle_irq(struct pt_regs *regs)
 	if (READ_ONCE(current_lame_cfg(do_upcall))) 
 		intel_lame_upcall(regs);
 
+	/* do stall emulation */
+	if (READ_ONCE(current_lame_cfg(do_stall)))
+		intel_lame_stall_emulation();
+	
 done:
 	/* Only restore PMU state when it's active. See x86_pmu_disable(). */
 	cpuc->enabled = pmu_enabled;
@@ -3282,9 +3286,6 @@ done:
 
 	/* On CloudLab c6620, late ack is used */
 	apic_write(APIC_LVTPC, APIC_DM_NMI);
-
-	if (READ_ONCE(current_lame_cfg(do_stall)))
-		intel_lame_stall_emulation();
 }
 /* end */
 
