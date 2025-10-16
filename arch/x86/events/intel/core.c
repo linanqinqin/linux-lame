@@ -3221,7 +3221,7 @@ static __always_inline void intel_lame_stall_emulation(void)
 	lame_counter_stall_emulation++;
 
 	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
-	u64 tsc_deadline = rdtsc() + 800ULL;
+	u64 tsc_deadline = rdtsc() + READ_ONCE(current->lame_cfg.stall_duration);
 	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
 }
 
