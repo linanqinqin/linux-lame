@@ -3158,6 +3158,7 @@ void intel_lame_handle_irq(struct pt_regs *regs);
 
 extern u64 lame_counter_handler_upcall;
 extern u64 lame_counter_stall_emulation;
+extern u64 lame_counter_stall_duration_total;
 
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
@@ -3221,8 +3222,11 @@ static __always_inline void intel_lame_stall_emulation(void)
 	lame_counter_stall_emulation++;
 
 	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
-	u64 tsc_deadline = rdtsc() + READ_ONCE(current->lame_cfg.stall_duration);
+	u64 tsc_start = rdtsc();
+	u64 tsc_deadline = tsc_start + READ_ONCE(current->lame_cfg.stall_duration);
 	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
+
+	lame_counter_stall_duration_total += rdtsc() - tsc_start;
 }
 
 #define LAME_PMC_IDX 0

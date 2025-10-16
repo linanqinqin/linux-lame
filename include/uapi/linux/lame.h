@@ -65,6 +65,7 @@ struct lame_counter {
     __u64 nmi_entry;
     __u64 handler_upcall;
     __u64 stall_emulation;
+    __u64 stall_duration_total;
 };
 
 #endif /* _UAPI_LINUX_LAME_H */ 
