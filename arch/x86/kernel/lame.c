@@ -284,7 +284,7 @@ static int __lame_config_pmu(struct file *file, unsigned long arg)
 
     if (task) {
 
-        struct lame_config *lame_cfg = &(task->signal.lame_cfg);
+        struct lame_config *lame_cfg = &(task->signal->lame_cfg);
         
         if (user_arg.config) {
             /* parse the set up the sample periods */

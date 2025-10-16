@@ -3163,7 +3163,7 @@ extern u64 lame_counter_stall_duration_total;
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
 
-#define current_lame_cfg(member) (current->signal.lame_cfg.member)
+#define current_lame_cfg(member) (current->signal->lame_cfg.member)
 
 /* 
  * lame_x86_perf_event_set_period - set the period of the LAME counter
