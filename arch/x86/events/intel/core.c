@@ -22,6 +22,9 @@
 #include <asm/intel_pt.h>
 #include <asm/apic.h>
 #include <asm/cpu_device_id.h>
+/* linanqinqin */
+#include <asm/mwait.h>
+/* end */
 
 #include "../perf_event.h"
 
@@ -3208,6 +3211,13 @@ static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
 	/* patch the IST frame to jump to the user-space handler */
 	regs->ip = READ_ONCE(current->lame_cfg.handler_addr);
+}
+
+static __always_inline void intel_lame_stall_emulation(void)
+{
+	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
+	u64 tsc_deadline = rdtsc() + 800ULL;
+	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
 }
 
 #define LAME_PMC_IDX 0
