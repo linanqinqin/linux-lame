@@ -140,7 +140,7 @@ static int is_pid_running(pid_t pid)
     }
 }
 
-int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, uint32_t stall_duration)
+int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, int stall_duration)
 {
 
     if ((pid < 0 && cpu_start < 0) || sample_periods <= 0) { 
@@ -170,6 +170,9 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
         uint32_t config = 0;
         if (stall_duration > 0) {
             config = LAME_CONFIG_OPTION_STALL | (stall_duration << 16);
+        }
+        else if (stall_duration < 0) {
+            config = LAME_CONFIG_OPTION_NOP;
         }
         else {
             config = LAME_CONFIG_OPTION_UPCALL;
@@ -243,10 +246,11 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
 
     struct lame_counter cntr_vals_end;
     get_lame_counter(&cntr_vals_end);
-    fprintf(stdout, "LAME counted: %llu, %llu, %llu\n", 
+    fprintf(stdout, "LAME counted: %llu, %llu, %llu, %llu\n", 
             cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
             cntr_vals_end.handler_upcall - cntr_vals_start.handler_upcall,
-            cntr_vals_end.stall_emulation - cntr_vals_start.stall_emulation);
+            cntr_vals_end.stall_emulation - cntr_vals_start.stall_emulation,
+            cntr_vals_end.stall_duration_total - cntr_vals_start.stall_duration_total);
 
     return 0;
 }
@@ -258,7 +262,7 @@ int print_lame_counter(void)
         fprintf(stderr, "get_lame_counter failed\n");
         return -1;
     }
-    fprintf(stdout, "LAME counter values: %llu, %llu, %llu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall, cntr_vals.stall_emulation);
+    fprintf(stdout, "LAME counter values: %llu, %llu, %llu, %llu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall, cntr_vals.stall_emulation, cntr_vals.stall_duration_total);
     return 0;
 }
 
@@ -320,7 +324,7 @@ static void usage(const char *progname)
     fprintf(stderr, "  -u <cpu>             Target CPU ID or a range (e.g. 0-7)\n");
     fprintf(stderr, "  -p <percentage>      Sample percentage (N%% of LLC misses; 0-50)\n");
     fprintf(stderr, "  -e <period>          Sample period (every Nth LLC miss)\n");
-    fprintf(stderr, "  -s <stall_duration>  Stall duration in TSC cycles\n");
+    fprintf(stderr, "  -s <stall_duration>  Stall duration in TSC cycles; \"nop\" for no stall; disables upcall when this option is supplied\n");
     fprintf(stderr, "  -n                   Set IDT[2] to stock NMI handler\n");
     fprintf(stderr, "  -l                   Set IDT[2] to LAME kernel trampoline\n");
     fprintf(stderr, "  -c                   Print LAME counter value\n");
@@ -336,7 +340,7 @@ int main(int argc, char **argv)
     pid_t pid = -1;
     uint64_t percentage = 0;
     uint64_t period = 0;
-    uint32_t stall_duration = 0;
+    int stall_duration = 0;
     int cpu_start = -1;         /* range start if specified */
     int cpu_end = -1;           /* range end if specified */
     int do_set_idt2_nmi = 0;
@@ -397,7 +401,12 @@ int main(int argc, char **argv)
             }
             break;
         case 's':
-            stall_duration = strtoull(optarg, NULL, 0);
+            if (strcmp(optarg, "nop") == 0) {
+                stall_duration = -1;
+            }
+            else {
+                stall_duration = strtoull(optarg, NULL, 0);
+            }
             break;
         case 'n':
             do_set_idt2_nmi = 1;
