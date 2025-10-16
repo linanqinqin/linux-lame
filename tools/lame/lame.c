@@ -16,7 +16,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <stdbool.h>
 
 static inline long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
                             int cpu, int group_fd, unsigned long flags)
@@ -58,10 +57,10 @@ int set_idt2_lame(void)
     return 0;
 }
 
-int config_lame(bool enable, pid_t pid, uint64_t sample_periods)
+int config_lame(uint32_t config, pid_t pid, uint64_t sample_periods)
 {
     struct lame_pmu_arg lame_pmu_arg;
-    lame_pmu_arg.enable = enable;
+    lame_pmu_arg.config = config;
     lame_pmu_arg.pid = pid;
     lame_pmu_arg.sample_periods = sample_periods;
 
@@ -141,7 +140,7 @@ static int is_pid_running(pid_t pid)
     }
 }
 
-int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
+int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, uint32_t stall_duration)
 {
 
     if ((pid < 0 && cpu_start < 0) || sample_periods <= 0) { 
@@ -168,7 +167,14 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     
     /* configure LAME emulation */
     if (pid > 0) {
-        if (config_lame(true, pid, sample_periods)) {
+        uint32_t config = 0;
+        if (stall_duration > 0) {
+            config = LAME_CONFIG_OPTION_STALL | (stall_duration << 16);
+        }
+        else {
+            config = LAME_CONFIG_OPTION_UPCALL;
+        }
+        if (config_lame(config, pid, sample_periods)) {
             fprintf(stderr, "config_lame failed\n");
             return -1;
         }
@@ -209,13 +215,13 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     }
 
     if (pid > 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d\n", pid, cpu_start, cpu_end);
+        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d in %s mode\n", pid, cpu_start, cpu_end, stall_duration > 0 ? "stall" : "upcall");
     }
     else if (pid > 0 && cpu_start < 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d\n", pid);
+        fprintf(stdout, "LAME emulation enabled on pid %d in %s mode\n", pid, stall_duration > 0 ? "stall" : "upcall");
     }
     else if (pid < 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on cores %d-%d\n", cpu_start, cpu_end);
+        fprintf(stdout, "LAME emulation enabled on cores %d-%d in %s mode\n", cpu_start, cpu_end, stall_duration > 0 ? "stall" : "upcall");
     }
     
     /* Main monitoring loop */
@@ -232,7 +238,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods)
     /* Cleanup */
     disable_lame();
     if (pid > 0 && !target_terminated) {
-        config_lame(false, pid, 0);
+        config_lame(LAME_CONFIG_OPTION_NONE, pid, 0);
     }
 
     struct lame_counter cntr_vals_end;
@@ -308,14 +314,15 @@ uint64_t percentage_to_periods(uint64_t x_percent) {
 static void usage(const char *progname)
 {
     fprintf(stderr, "Usage: %s -i <pid> -e <sample_period>\n", progname);
-    fprintf(stderr, "  -i <pid>         Target process ID\n");
-    fprintf(stderr, "  -u <cpu>         Target CPU ID or a range (e.g. 0-7)\n");
-    fprintf(stderr, "  -p <percentage>  Sample percentage (N%% of LLC misses)\n");
-    fprintf(stderr, "  -e <period>      Sample period (every Nth LLC miss)\n");
-    fprintf(stderr, "  -n               Set IDT[2] to stock NMI handler\n");
-    fprintf(stderr, "  -l               Set IDT[2] to LAME kernel trampoline\n");
-    fprintf(stderr, "  -c               Print LAME counter value\n");
-    fprintf(stderr, "  -h               Show this help message\n");
+    fprintf(stderr, "  -i <pid>             Target process ID\n");
+    fprintf(stderr, "  -u <cpu>             Target CPU ID or a range (e.g. 0-7)\n");
+    fprintf(stderr, "  -p <percentage>      Sample percentage (N%% of LLC misses; 0-50)\n");
+    fprintf(stderr, "  -e <period>          Sample period (every Nth LLC miss)\n");
+    fprintf(stderr, "  -s <stall_duration>  Stall duration in TSC cycles\n");
+    fprintf(stderr, "  -n                   Set IDT[2] to stock NMI handler\n");
+    fprintf(stderr, "  -l                   Set IDT[2] to LAME kernel trampoline\n");
+    fprintf(stderr, "  -c                   Print LAME counter value\n");
+    fprintf(stderr, "  -h                   Show this help message\n");
     fprintf(stderr, "\nExample: %s -i 1234 -u 0-7 -e 10\n", progname);
     fprintf(stderr, "Example: %s -n\n", progname);
     fprintf(stderr, "Example: %s -l\n", progname);
@@ -327,6 +334,7 @@ int main(int argc, char **argv)
     pid_t pid = -1;
     uint64_t percentage = 0;
     uint64_t period = 0;
+    uint32_t stall_duration = 0;
     int cpu_start = -1;         /* range start if specified */
     int cpu_end = -1;           /* range end if specified */
     int do_set_idt2_nmi = 0;
@@ -334,7 +342,7 @@ int main(int argc, char **argv)
     int do_print_lame_counter = 0;
     int opt;
     
-    while ((opt = getopt(argc, argv, "i:u:p:e:nlch")) != -1) {
+    while ((opt = getopt(argc, argv, "i:u:p:e:s:nlch")) != -1) {
         switch (opt) {
         case 'i':
             pid = atoi(optarg);
@@ -385,6 +393,9 @@ int main(int argc, char **argv)
                 fprintf(stderr, "Error: Invalid sample period '%s'\n", optarg);
                 return 1;
             }
+            break;
+        case 's':
+            stall_duration = strtoull(optarg, NULL, 0);
             break;
         case 'n':
             do_set_idt2_nmi = 1;
@@ -467,7 +478,7 @@ int main(int argc, char **argv)
         } else {
             sample_periods = period << 48 | period << 32 | 100 << 16 | 100;
         }
-        return enable_lame(pid, cpu_start, cpu_end, sample_periods);
+        return enable_lame(pid, cpu_start, cpu_end, sample_periods, stall_duration);
     }
     else {
         fprintf(stderr, "Error: Invalid options\n");
