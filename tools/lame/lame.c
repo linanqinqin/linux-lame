@@ -140,6 +140,25 @@ static int is_pid_running(pid_t pid)
     }
 }
 
+const char *tsc_to_time(uint64_t tsc)
+{
+    static char time_str[32];
+    tsc = tsc / 3; /* assume 3GHz */
+    if (tsc < 1e3) {
+        sprintf(time_str, "%llu ns", tsc);
+    }
+    else if (tsc < 1e6) {
+        sprintf(time_str, "%.3f us", (double)tsc / 1e3);
+    }
+    else if (tsc < 1e9) {
+        sprintf(time_str, "%.6f ms", (double)tsc / 1e6);
+    }
+    else {
+        sprintf(time_str, "%.9f s", (double)tsc / 1e9);
+    }
+    return time_str;
+}
+
 int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, int stall_duration)
 {
 
@@ -246,11 +265,15 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
 
     struct lame_counter cntr_vals_end;
     get_lame_counter(&cntr_vals_end);
-    fprintf(stdout, "LAME counted: %llu, %llu, %llu, %llu\n", 
+    uint64_t stall_emulation = cntr_vals_end.stall_emulation - cntr_vals_start.stall_emulation;
+    uint64_t stall_duration_total = cntr_vals_end.stall_duration_total - cntr_vals_start.stall_duration_total;
+    fprintf(stdout, "LAME counted: %llu, %llu, %llu, %llu (%s, %llu)\n", 
             cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
             cntr_vals_end.handler_upcall - cntr_vals_start.handler_upcall,
-            cntr_vals_end.stall_emulation - cntr_vals_start.stall_emulation,
-            cntr_vals_end.stall_duration_total - cntr_vals_start.stall_duration_total);
+            stall_emulation,
+            stall_duration_total,
+            tsc_to_time(stall_duration_total),
+            stall_emulation? stall_duration_total / stall_emulation : 0);
 
     return 0;
 }
@@ -262,7 +285,13 @@ int print_lame_counter(void)
         fprintf(stderr, "get_lame_counter failed\n");
         return -1;
     }
-    fprintf(stdout, "LAME counter values: %llu, %llu, %llu, %llu\n", cntr_vals.nmi_entry, cntr_vals.handler_upcall, cntr_vals.stall_emulation, cntr_vals.stall_duration_total);
+    fprintf(stdout, "LAME counter values: %llu, %llu, %llu, %llu (%s, %llu)\n", 
+            cntr_vals.nmi_entry, 
+            cntr_vals.handler_upcall, 
+            cntr_vals.stall_emulation, 
+            cntr_vals.stall_duration_total,
+            tsc_to_time(cntr_vals.stall_duration_total),
+            cntr_vals.stall_emulation? cntr_vals.stall_duration_total / cntr_vals.stall_emulation : 0);
     return 0;
 }
 
