@@ -145,7 +145,7 @@ const char *tsc_to_time(uint64_t tsc)
     static char time_str[32];
     tsc = tsc / 3; /* assume 3GHz */
     if (tsc < 1e3) {
-        sprintf(time_str, "%llu ns", tsc);
+        sprintf(time_str, "%lu ns", tsc);
     }
     else if (tsc < 1e6) {
         sprintf(time_str, "%.3f us", (double)tsc / 1e3);
@@ -267,7 +267,7 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
     get_lame_counter(&cntr_vals_end);
     uint64_t stall_emulation = cntr_vals_end.stall_emulation - cntr_vals_start.stall_emulation;
     uint64_t stall_duration_total = cntr_vals_end.stall_duration_total - cntr_vals_start.stall_duration_total;
-    fprintf(stdout, "LAME counted: %llu, %llu, %llu, %llu (%s, %llu)\n", 
+    fprintf(stdout, "LAME counted: %llu, %llu, %lu, %lu (%s, %lu)\n", 
             cntr_vals_end.nmi_entry - cntr_vals_start.nmi_entry, 
             cntr_vals_end.handler_upcall - cntr_vals_start.handler_upcall,
             stall_emulation,
