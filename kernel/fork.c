@@ -1194,8 +1194,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #endif
 /* linanqinqin */
 #ifdef CONFIG_LAME
-	tsk->lame_cfg.is_active = 0;
-	tsk->lame_cfg.handler_addr = 0 /* NULL */;
+	tsk->lame_ctx.last_deadline_tsc = 0;
 #endif
 /* end */
 	return tsk;
@@ -1901,6 +1900,13 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	mutex_init(&sig->cred_guard_mutex);
 	init_rwsem(&sig->exec_update_lock);
 
+/* linanqinqin */
+#ifdef CONFIG_LAME
+	sig->lame_cfg.is_active = 0;
+	sig->lame_cfg.handler_addr = 0 /* NULL */;
+#endif
+/* end */
+
 	return 0;
 }
 
@@ -2471,8 +2477,7 @@ __latent_entropy struct task_struct *copy_process(
 #endif
 /* linanqinqin */
 #ifdef CONFIG_LAME
-	p->lame_cfg.is_active = 0;
-	p->lame_cfg.handler_addr = 0 /* NULL */;
+	p->lame_ctx.last_deadline_tsc = 0;
 #endif
 /* end */
 

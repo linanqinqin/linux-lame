@@ -42,6 +42,11 @@ static struct signal_struct init_signals = {
 		[PIDTYPE_SID]	= &init_struct_pid,
 	},
 	INIT_PREV_CPUTIME(init_signals)
+	/* linanqinqin */
+#ifdef CONFIG_LAME
+	.lame_cfg	= { .is_active = 0, .handler_addr = 0 /* NULL */ },
+#endif
+/* end */
 };
 
 static struct sighand_struct init_sighand = {
@@ -207,7 +212,7 @@ struct task_struct init_task __aligned(L1_CACHE_BYTES) = {
 #endif
 /* linanqinqin */
 #ifdef CONFIG_LAME
-	.lame_cfg	= { .is_active = 0, .handler_addr = 0 /* NULL */ },
+	.lame_ctx	= { .last_deadline_tsc = 0 },
 #endif
 /* end */
 };
