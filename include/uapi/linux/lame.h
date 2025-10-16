@@ -64,6 +64,7 @@ struct lame_pmu_arg {
 struct lame_counter {
     __u64 nmi_entry;
     __u64 handler_upcall;
+    __u64 stall_emulation;
 };
 
 #endif /* _UAPI_LINUX_LAME_H */ 

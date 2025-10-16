@@ -3155,7 +3155,10 @@ done:
 
 /* linanqinqin */
 void intel_lame_handle_irq(struct pt_regs *regs);
+
 extern u64 lame_counter_handler_upcall;
+extern u64 lame_counter_stall_emulation;
+
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
 
@@ -3215,6 +3218,8 @@ static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
 static __always_inline void intel_lame_stall_emulation(void)
 {
+	lame_counter_stall_emulation++;
+
 	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
 	u64 tsc_deadline = rdtsc() + 800ULL;
 	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
