@@ -1257,7 +1257,7 @@ struct task_struct {
 #endif
 /* linanqinqin */
 #ifdef CONFIG_LAME
-	struct lame_config		lame_cfg;
+	struct lame_context		lame_ctx;
 #endif
 /* end */
 #ifdef CONFIG_DEBUG_PREEMPT
