@@ -227,6 +227,7 @@ int enable_lame(pid_t pid, uint64_t sample_periods, int stall_duration)
         return -1;
     }
     
+    int offset = 0;
     path[0] = '\0';
     while ((de = readdir(dir)) != NULL) {
         pid_t tid = atoi(de->d_name);
@@ -237,7 +238,7 @@ int enable_lame(pid_t pid, uint64_t sample_periods, int stall_duration)
                 return -1;
             }
             global_fds[global_tid_count++] = fd;
-            sprintf(path, "%s %d", path, tid);
+            offset += snprintf(path + offset, sizeof(path) - offset, "%d ", tid);
         }
     }   
     closedir(dir);
