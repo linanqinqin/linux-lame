@@ -491,6 +491,7 @@ static DEFINE_PER_CPU(unsigned long, nmi_dr7);
 
 /* linanqinqin */
 extern void lame_perf_event_nmi_handler(struct pt_regs *regs);
+DECLARE_PER_CPU(u64, lame_counter_nmi_entry);
 /* end */
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {

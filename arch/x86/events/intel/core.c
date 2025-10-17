@@ -3159,6 +3159,10 @@ void intel_lame_handle_irq(struct pt_regs *regs);
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
 
+DECLARE_PER_CPU(u64, lame_counter_handler_upcall);
+DECLARE_PER_CPU(u64, lame_counter_stall_emulation);
+DECLARE_PER_CPU(u64, lame_counter_stall_duration_total);
+
 #define current_lame_cfg(member) (current->signal->lame_cfg.member)
 
 /* 
