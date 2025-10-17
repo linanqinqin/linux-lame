@@ -496,6 +496,9 @@ DEFINE_IDTENTRY_RAW(exc_nmi)
 {
 	/* linanqinqin */
 #ifdef CONFIG_LAME
+	
+	this_cpu_inc(lame_counter_nmi_entry);
+
 	/* If LAME is active and from user mode, bypass generic NMI dispatch
 	* and invoke the LAME PMU handler fast path. */
 	if (user_mode(regs) && READ_ONCE(current->signal->lame_cfg.is_active))

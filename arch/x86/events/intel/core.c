@@ -3156,10 +3156,6 @@ done:
 /* linanqinqin */
 void intel_lame_handle_irq(struct pt_regs *regs);
 
-extern u64 lame_counter_handler_upcall;
-extern u64 lame_counter_stall_emulation;
-extern u64 lame_counter_stall_duration_total;
-
 DEFINE_PER_CPU(int, lame_idx) = 0;
 DEFINE_PER_CPU(int, lame_occurrences) = 0;
 
@@ -3204,7 +3200,7 @@ static __always_inline void lame_x86_perf_event_set_period(void)
  */
 static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
-	lame_counter_handler_upcall++;
+	this_cpu_inc(lame_counter_handler_upcall);
 
 	/* SMAP: briefly allow/disallow supervisor write to user memory 
 	 * raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
@@ -3221,14 +3217,14 @@ static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
 static __always_inline void intel_lame_stall_emulation(void)
 {
-	lame_counter_stall_emulation++;
+	this_cpu_inc(lame_counter_stall_emulation);
 
 	/* TPAUSE until deadline in TSC, using C0.1 (low-latency) */
 	u64 tsc_start = rdtsc();
 	u64 tsc_deadline = tsc_start + READ_ONCE(current_lame_cfg(stall_duration));
 	__tpause(TPAUSE_C01_STATE, (u32)(tsc_deadline >> 32), (u32)tsc_deadline);
 
-	lame_counter_stall_duration_total += rdtsc() - tsc_start;
+	this_cpu_add(lame_counter_stall_duration_total, rdtsc() - tsc_start);
 }
 
 #define LAME_PMC_IDX 0

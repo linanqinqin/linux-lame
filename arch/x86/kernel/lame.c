@@ -39,11 +39,11 @@ extern struct desc_ptr idt_descr;
 extern void asm_exc_nmi(void);
 extern void asm_exc_lame(void);
 
-/* global lame counter */
-u64 lame_counter_nmi_entry __aligned(64);
-u64 lame_counter_handler_upcall __aligned(64);
-u64 lame_counter_stall_emulation __aligned(64);
-u64 lame_counter_stall_duration_total __aligned(64);
+/* per-cpu lame counters */
+DEFINE_PER_CPU(u64, lame_counter_nmi_entry) = 0;
+DEFINE_PER_CPU(u64, lame_counter_handler_upcall) = 0;
+DEFINE_PER_CPU(u64, lame_counter_stall_emulation) = 0;
+DEFINE_PER_CPU(u64, lame_counter_stall_duration_total) = 0;
 EXPORT_SYMBOL(lame_counter_nmi_entry);
 EXPORT_SYMBOL(lame_counter_handler_upcall);
 EXPORT_SYMBOL(lame_counter_stall_emulation);
@@ -253,12 +253,23 @@ static int __lame_idt2_set_lame(struct file *file)
 
 static int __lame_counter_read(struct file *file, unsigned long arg)
 {
-    struct lame_counter cntr_vals;
+    struct lame_counter cntr_vals = {0};
+    int cpu;
 
-    cntr_vals.nmi_entry = READ_ONCE(lame_counter_nmi_entry);
-    cntr_vals.handler_upcall = READ_ONCE(lame_counter_handler_upcall);
-    cntr_vals.stall_emulation = READ_ONCE(lame_counter_stall_emulation);
-    cntr_vals.stall_duration_total = READ_ONCE(lame_counter_stall_duration_total);
+    for_each_possible_cpu(cpu) {
+        u64 nmi_entry = per_cpu(lame_counter_nmi_entry, cpu);
+        u64 handler_upcall = per_cpu(lame_counter_handler_upcall, cpu);
+        u64 stall_emulation = per_cpu(lame_counter_stall_emulation, cpu);
+        u64 stall_duration_total = per_cpu(lame_counter_stall_duration_total, cpu);
+
+        cntr_vals.nmi_entry += nmi_entry;
+        cntr_vals.handler_upcall += handler_upcall;
+        cntr_vals.stall_emulation += stall_emulation;
+        cntr_vals.stall_duration_total += stall_duration_total;
+
+        pr_info("[__lame_counter_read] CPU %d: nmi_entry=%llu, handler_upcall=%llu, stall_emulation=%llu, stall_duration_total=%llu\n",
+                cpu, nmi_entry, handler_upcall, stall_emulation, stall_duration_total);
+    }
 
     if (copy_to_user((struct lame_counter __user *)arg, &cntr_vals, sizeof(cntr_vals))) {
         pr_err("[__lame_counter_read] Failed to copy counter values to user space\n");
