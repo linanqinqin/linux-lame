@@ -267,8 +267,10 @@ static int __lame_counter_read(struct file *file, unsigned long arg)
         cntr_vals.stall_emulation += stall_emulation;
         cntr_vals.stall_duration_total += stall_duration_total;
 
-        pr_info("[__lame_counter_read] CPU %d: nmi_entry=%llu, handler_upcall=%llu, stall_emulation=%llu, stall_duration_total=%llu\n",
-                cpu, nmi_entry, handler_upcall, stall_emulation, stall_duration_total);
+        if (nmi_entry > 0 || handler_upcall > 0 || stall_emulation > 0 || stall_duration_total > 0) {
+            pr_info("[__lame_counter_read] CPU %d: nmi_entry=%llu, handler_upcall=%llu, stall_emulation=%llu, stall_duration_total=%llu\n",
+                    cpu, nmi_entry, handler_upcall, stall_emulation, stall_duration_total);
+        }
     }
 
     if (copy_to_user((struct lame_counter __user *)arg, &cntr_vals, sizeof(cntr_vals))) {
