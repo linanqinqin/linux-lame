@@ -227,6 +227,7 @@ int enable_lame(pid_t pid, uint64_t sample_periods, int stall_duration)
         return -1;
     }
     
+    path[0] = '\0';
     while ((de = readdir(dir)) != NULL) {
         pid_t tid = atoi(de->d_name);
         if (tid > 0) {
@@ -236,11 +237,12 @@ int enable_lame(pid_t pid, uint64_t sample_periods, int stall_duration)
                 return -1;
             }
             global_fds[global_tid_count++] = fd;
+            sprintf(path, "%s %d", path, tid);
         }
     }   
     closedir(dir);
 
-    fprintf(stdout, "LAME emulation enabled on pid %d in %s mode\n", pid, stall_duration < 0 ? "nop" : stall_duration > 0 ? "stall" : "upcall");
+    fprintf(stdout, "LAME emulation enabled on pid %sin %s mode\n", path, stall_duration < 0 ? "nop" : stall_duration > 0 ? "stall" : "upcall");
     
     /* Main monitoring loop */
     int target_terminated = 0;
