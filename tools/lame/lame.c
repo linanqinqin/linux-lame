@@ -98,11 +98,10 @@ static int get_lame_counter(struct lame_counter *cntr_vals)
 }
 
 /* Global variables for cleanup */
-#define MAX_CPUS 128
-static int global_fds[MAX_CPUS];
-static int global_cpu_start = -1;
-static int global_cpu_end = -1;
+#define MAX_THREADS 128
+static int global_fds[MAX_THREADS];
 static pid_t global_pid = -1;
+static int global_tid_count = 0;
 static volatile sig_atomic_t shutdown_requested = 0;
 
 /* Signal handler for graceful shutdown */
@@ -116,13 +115,10 @@ static void signal_handler(int sig)
 /* Cleanup function for LAME emulation */
 static void disable_lame(void)
 {
-    if (global_cpu_start >= 0 && global_cpu_end >= 0) {
-        for (int cpu = global_cpu_start; cpu <= global_cpu_end; cpu++) {
-            if (global_fds[cpu] >= 0) {
-                close(global_fds[cpu]);
-            }
-        }
+    for (int i = 0; i < global_tid_count; i++) {
+        close(global_fds[i]);
     }
+    global_tid_count = 0;
 }
 
 /* Check if target PID is still running */
@@ -159,15 +155,11 @@ const char *tsc_to_time(uint64_t tsc)
     return time_str;
 }
 
-int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, int stall_duration)
+int enable_lame(pid_t pid, uint64_t sample_periods, int stall_duration)
 {
 
-    if ((pid < 0 && cpu_start < 0) || sample_periods <= 0) { 
+    if (pid < 0 || sample_periods <= 0) { 
         fprintf(stderr, "Error: Invalid options\n");
-        return -1;
-    }
-    if (cpu_end >= MAX_CPUS) {
-        fprintf(stderr, "Error: CPU range exceeds MAX_CPUS=128\n");
         return -1;
     }
 
@@ -181,8 +173,6 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
     
     /* Store global state for cleanup */
     global_pid = pid;
-    global_cpu_start = cpu_start;
-    global_cpu_end = cpu_end;
     
     /* configure LAME emulation */
     if (pid > 0) {
@@ -224,27 +214,32 @@ int enable_lame(pid_t pid, int cpu_start, int cpu_end, uint64_t sample_periods, 
     pea.disabled = 0;                  // start immediately
     pea.pinned = 1;                    // pin to a counter (avoid multiplex)
 
-    for (int cpu = cpu_start; cpu <= cpu_end; cpu++) {
-        int fd = perf_event_open(&pea, pid, cpu, -1, 0);
-        if (fd == -1) {
-            fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
-            for (int i = cpu_start; i<cpu; i++) {
-                close(global_fds[i]);
+    /* iterate through all tids in the thread group */
+    DIR *dir;
+    struct dirent *de;
+    char path[256];
+    
+    sprintf(path, "/proc/%d/task", pid);
+    dir = opendir(path);
+    if (dir == NULL) {
+        fprintf(stderr, "opendir failed with errno: %d\n", errno);
+        return -1;
+    }
+    
+    while ((de = readdir(dir)) != NULL) {
+        pid_t tid = atoi(de->d_name);
+        if (tid > 0) {
+            int fd = perf_event_open(&pea, tid, -1, -1, 0);
+            if (fd == -1) {
+                fprintf(stderr, "perf_event_open failed with errno: %d\n", errno);
+                return -1;
             }
-            return -1;
+            global_fds[global_tid_count++] = fd;
         }
-        global_fds[cpu] = fd;
-    }
+    }   
+    closedir(dir);
 
-    if (pid > 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d on cores %d-%d in %s mode\n", pid, cpu_start, cpu_end, stall_duration > 0 ? "stall" : "upcall");
-    }
-    else if (pid > 0 && cpu_start < 0) {
-        fprintf(stdout, "LAME emulation enabled on pid %d in %s mode\n", pid, stall_duration > 0 ? "stall" : "upcall");
-    }
-    else if (pid < 0 && cpu_start >= 0) {
-        fprintf(stdout, "LAME emulation enabled on cores %d-%d in %s mode\n", cpu_start, cpu_end, stall_duration > 0 ? "stall" : "upcall");
-    }
+    fprintf(stdout, "LAME emulation enabled on pid %d in %s mode\n", pid, stall_duration < 0 ? "nop" : stall_duration > 0 ? "stall" : "upcall");
     
     /* Main monitoring loop */
     int target_terminated = 0;
@@ -518,7 +513,7 @@ int main(int argc, char **argv)
         } else {
             sample_periods = period << 48 | period << 32 | 100 << 16 | 100;
         }
-        return enable_lame(pid, cpu_start, cpu_end, sample_periods, stall_duration);
+        return enable_lame(pid, sample_periods, stall_duration);
     }
     else {
         fprintf(stderr, "Error: Invalid options\n");
