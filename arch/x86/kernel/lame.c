@@ -28,6 +28,9 @@
 #define DPL0		0x0
 #define DPL3		0x3
 
+/* access to the current task's LAME configuration */
+#define current_lame_cfg(member) (current->signal->lame_cfg.member) 
+
 /* External declarations for IDT management */
 extern gate_desc idt_table[];
 extern struct desc_ptr idt_descr;
@@ -190,15 +193,15 @@ static int __lame_register_pmu(struct file *file, unsigned long arg)
     if (user_arg.present) {
         
         /* Populate lame_cfg in current task's task_struct */
-        current->lame_cfg.handler_addr = (u64)user_arg.handler_addr;
+        current_lame_cfg(handler_addr) = (u64)user_arg.handler_addr;
 
         pr_info("[__lame_register_pmu] LAME registered for task %d: handler=0x%lx\n",
-                current->pid, current->lame_cfg.handler_addr);
+                current->pid, current_lame_cfg(handler_addr));
     } else {
         
         /* Clear lame_cfg in current task's task_struct */
-        current->lame_cfg.is_active = 0;
-        current->lame_cfg.handler_addr = 0;
+        current_lame_cfg(is_active) = 0;
+        current_lame_cfg(handler_addr) = 0;
 
         pr_info("[__lame_register_pmu] LAME unregistered for task %d\n", current->pid);
     }
