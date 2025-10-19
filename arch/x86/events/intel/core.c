@@ -3204,19 +3204,28 @@ static __always_inline void lame_x86_perf_event_set_period(void)
  */
 static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
-	this_cpu_inc(lame_counter_handler_upcall);
+	/* Safe user memory access using linux intrinsics */
+	/* Check if the user stack addresses are accessible before writing */
+	if (access_ok((void __user *)regs->sp - 16, 16)) {
+		
+		u64 frame_data[2] = { regs->flags, regs->ip }; 	/* Prepare the frame data in a local buffer */
+		regs->sp -= 16;                                 /* Adjust the stack pointer */
 
-	/* SMAP: briefly allow/disallow supervisor write to user memory 
-	 * raw store to user stack. the user program must guarantee this page is mmapped+mlocked */
-	asm volatile("stac" ::: "memory");
-	regs->sp -= 8;
-	*(u64 __user *)regs->sp = regs->ip;
-	regs->sp -= 8;
-	*(u64 __user *)regs->sp = regs->flags;
-	asm volatile("clac" ::: "memory");
+		/* Use copy_to_user_nofault for atomic write of both values */
+		if (copy_to_user_nofault((void __user *)regs->sp, frame_data, 16)) {
+			/* If write fails, restore stack pointer and abort */
+			regs->sp += 16;
+			return;
+		}
+	} else {
+		/* If user stack is not accessible, abort the upcall */
+		return;
+	}
 
 	/* patch the IST frame to jump to the user-space handler */
 	regs->ip = READ_ONCE(current_lame_cfg(handler_addr));
+	
+	this_cpu_inc(lame_counter_handler_upcall);
 }
 
 static __always_inline void intel_lame_stall_emulation(void)
