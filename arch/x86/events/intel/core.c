@@ -3202,19 +3202,22 @@ static __always_inline void lame_x86_perf_event_set_period(void)
  * this is very similar to a same-ring interrupt frame, but without the CS, because LAME always assumes same-ring, same-CS branching. 
  *
  */
+#define LAME_RED_ZONE_BYTES 128 		// x86-64 SysV ABI
+#define LAME_FRAME_BYTES 16 			// rflags + rip
+#define LAME_SKIP_BYTES (LAME_RED_ZONE_BYTES+LAME_FRAME_BYTES)
 static __always_inline void intel_lame_upcall(struct pt_regs *regs) {
 
 	/* Safe user memory access using linux intrinsics */
 	/* Check if the user stack addresses are accessible before writing */
-	if (access_ok((void __user *)regs->sp - 16, 16)) {
+	if (access_ok((void __user *)regs->sp - LAME_SKIP_BYTES, LAME_FRAME_BYTES)) {
 		
 		u64 frame_data[2] = { regs->flags, regs->ip }; 	/* Prepare the frame data in a local buffer */
-		regs->sp -= 16;                                 /* Adjust the stack pointer */
+		regs->sp -= LAME_SKIP_BYTES;                                 /* Adjust the stack pointer */
 
 		/* Use copy_to_user_nofault for atomic write of both values */
-		if (copy_to_user_nofault((void __user *)regs->sp, frame_data, 16)) {
+		if (copy_to_user_nofault((void __user *)regs->sp, frame_data, LAME_FRAME_BYTES)) {
 			/* If write fails, restore stack pointer and abort */
-			regs->sp += 16;
+			regs->sp += LAME_SKIP_BYTES;
 			return;
 		}
 	} else {
